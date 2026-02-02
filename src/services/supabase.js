@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 const url = 'https://knomjaygrqspgwpddgvx.supabase.co'
-const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtub21qYXlncnFzcGd3cGRkZ3Z4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc5MTcyMDMsImV4cCI6MjA1MzQ5MzIwM30.TWwVFPL5pfMNWJwWLenPp2FzCvuaa8WwJLYbOjLkp-0'
+const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtub21qYXlncnFzcGd3cGRkZ3Z4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0MzYwNjYsImV4cCI6MjA4NTAxMjA2Nn0.kN048sXyFuRPW5Zsf-53g8SSghRG7YCHW1sLwGaTG3M'
 export const supabase = createClient(url, key)
 export const signIn = (email, pw) => supabase.auth.signInWithPassword({ email, password: pw })
 export const signUp = (email, pw, data) => supabase.auth.signUp({ email, password: pw, options: { data } })
