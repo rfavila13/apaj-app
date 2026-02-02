@@ -77,12 +77,10 @@ export default function App() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: C.light, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ background: C.white, borderRadius: 24, padding: '48px 40px', width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(26,58,106,0.15)' }}>
+    <div style={{ minHeight: '100vh', background: `linear-gradient(135deg, ${C.primary} 0%, ${C.dark} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ background: C.white, borderRadius: 24, padding: '48px 40px', width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{ width: 100, height: 100, margin: '0 auto 20px', background: `linear-gradient(135deg, ${C.primary} 0%, ${C.dark} 100%)`, borderRadius: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>🤝</div>
-          <h1 style={{ fontSize: 28, color: C.primary, fontWeight: 700, margin: '0 0 8px' }}>APAJ</h1>
-          <p style={{ color: C.textLight, fontSize: 14, margin: 0 }}>Associação de Proteção e Apoio ao Jogador</p>
+          <img src="/logo-apaj.png" alt="APAJ" style={{ width: 180, height: 'auto', marginBottom: 8 }} />
         </div>
         {error && <div style={{ background: error.includes('realizado') ? '#e8f5e9' : '#ffebee', color: error.includes('realizado') ? C.success : C.danger, padding: '14px 18px', borderRadius: 12, marginBottom: 24, fontSize: 14, textAlign: 'center' }}>{error}</div>}
         <form onSubmit={handleSubmit}>

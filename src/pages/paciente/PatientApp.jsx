@@ -39,8 +39,7 @@ export default function PatientApp({ user, onLogout }) {
   const Home = () => (
     <div style={{ padding: 24, paddingBottom: 100 }}>
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
-        <div style={{ width: 90, height: 90, margin: '0 auto 16px', background: `linear-gradient(135deg, ${C.primary} 0%, ${C.dark} 100%)`, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>🤝</div>
-        <h1 style={{ fontSize: 26, color: C.primary, fontWeight: 700, margin: '0 0 6px' }}>APAJ</h1>
+        <img src="/logo-apaj.png" alt="APAJ" style={{ width: 120, height: 'auto', marginBottom: 8 }} />
         <p style={{ color: C.textLight, fontSize: 14 }}>Olá, {profile?.name?.split(' ')[0] || 'Bem-vindo'}! 👋</p>
       </div>
       {profile?.sober_start_date ? (

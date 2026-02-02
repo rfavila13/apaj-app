@@ -54,9 +54,8 @@ export default function PsychologistPanel({ user, onLogout }) {
 
   const Sidebar = () => (
     <aside style={{ width: 260, background: `linear-gradient(180deg, ${C.primary} 0%, ${C.dark} 100%)`, minHeight: '100vh', padding: '24px 0', position: 'fixed', left: 0, top: 0, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '0 24px', marginBottom: 36, display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{ width: 50, height: 50, background: 'rgba(255,255,255,0.15)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🤝</div>
-        <div><h1 style={{ color: C.white, fontSize: 22, margin: 0, fontWeight: 700 }}>APAJ</h1><p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, margin: 0 }}>Painel Profissional</p></div>
+      <div style={{ padding: '0 24px', marginBottom: 36, textAlign: 'center' }}>
+        <img src="/logo-apaj.png" alt="APAJ" style={{ width: 140, height: 'auto' }} />
       </div>
       <nav style={{ padding: '0 12px', flex: 1 }}>
         {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'patients', icon: '👥', label: 'Pacientes' }, { id: 'groups', icon: '🗓️', label: 'Grupos' }, { id: 'requests', icon: '📩', label: 'Solicitações', badge: pending }, { id: 'team', icon: '🏥', label: 'Equipe' }].map(i => (
