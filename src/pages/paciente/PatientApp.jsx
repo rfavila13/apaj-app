@@ -56,7 +56,6 @@ export default function PatientApp({ user, onLogout }) {
   const [loading, setLoading] = useState(true)
   const [fraseIndex, setFraseIndex] = useState(0)
   const [diaryEntries, setDiaryEntries] = useState([])
-  const [achievements, setAchievements] = useState([])
   const [debts, setDebts] = useState([])
   const [purchases, setPurchases] = useState([])
   const [nextSession, setNextSession] = useState(null)
@@ -82,10 +81,6 @@ export default function PatientApp({ user, onLogout }) {
       const { data: diary } = await supabase.from('diary_entries').select('*').eq('patient_id', user.id).order('created_at', { ascending: false })
       if (diary) setDiaryEntries(diary)
       
-      // Carregar conquistas pessoais
-      const { data: ach } = await supabase.from('patient_achievements').select('*').eq('patient_id', user.id).order('created_at', { ascending: false })
-      if (ach) setAchievements(ach)
-      
       // Carregar dívidas quitadas
       const { data: dbt } = await supabase.from('patient_debts').select('*').eq('patient_id', user.id).order('created_at', { ascending: false })
       if (dbt) setDebts(dbt)
@@ -95,7 +90,7 @@ export default function PatientApp({ user, onLogout }) {
       if (purch) setPurchases(purch)
       
       // Carregar grupos do paciente
-      const { data: groups } = await supabase.from('group_members').select('*, therapy_groups(*)').eq('patient_id', user.id)
+      const { data: groups } = await supabase.from('group_members').select('*, therapy_groups(*)').eq('patient_id', user.id).eq('is_active', true)
       if (groups) {
         setMyGroups(groups.map(g => g.therapy_groups).filter(Boolean))
         // Encontrar próxima sessão
@@ -115,6 +110,15 @@ export default function PatientApp({ user, onLogout }) {
     finally { setLoading(false) }
   }
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut()
+      if (onLogout) onLogout()
+    } catch (e) {
+      console.error('Erro ao sair:', e)
+    }
+  }
+
   const days = profile?.sober_start_date ? patientService.calcDays(profile.sober_start_date, relapses) : 0
   const savings = profile?.sober_start_date && profile?.previous_gambling_amount ? patientService.calcSavings(profile.sober_start_date, profile.previous_gambling_amount, relapses) : { total: 0 }
   
@@ -122,6 +126,22 @@ export default function PatientApp({ user, onLogout }) {
   const xpFromDays = CONQUISTAS.filter(c => days >= c.dias).reduce((sum, c) => sum + c.xp, 0)
   const xpFromSavings = Math.floor(savings.total * XP_POR_REAL_ECONOMIZADO)
   const totalXP = xpFromDays + xpFromSavings
+  
+  // Calcular level
+  const getLevel = (xp) => {
+    if (xp >= 15000) return { level: 10, nome: 'Mestre' }
+    if (xp >= 10000) return { level: 9, nome: 'Veterano' }
+    if (xp >= 7500) return { level: 8, nome: 'Experiente' }
+    if (xp >= 5000) return { level: 7, nome: 'Avançado' }
+    if (xp >= 2000) return { level: 6, nome: 'Intermediário' }
+    if (xp >= 1000) return { level: 5, nome: 'Dedicado' }
+    if (xp >= 600) return { level: 4, nome: 'Persistente' }
+    if (xp >= 300) return { level: 3, nome: 'Comprometido' }
+    if (xp >= 100) return { level: 2, nome: 'Iniciante' }
+    return { level: 1, nome: 'Novato' }
+  }
+  
+  const currentLevel = getLevel(totalXP)
 
   const NavBar = () => (
     <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.trueBlue, padding: '8px 0 12px', display: 'flex', justifyContent: 'space-around', zIndex: 1000, borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
@@ -183,14 +203,18 @@ export default function PatientApp({ user, onLogout }) {
               <span style={{ fontSize: 56, fontWeight: 700 }}>{days}</span>
               <p style={{ fontSize: 15, opacity: 0.9, margin: '4px 0 0' }}>dias de vitória</p>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div style={{ background: 'rgba(255,255,255,0.12)', padding: 14, borderRadius: 14, textAlign: 'center' }}>
-                <span style={{ fontSize: 18, fontWeight: 700 }}>R$ {savings.total.toLocaleString('pt-BR')}</span>
-                <p style={{ fontSize: 11, opacity: 0.8, margin: '4px 0 0' }}>Economizado</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <div style={{ background: 'rgba(255,255,255,0.12)', padding: 12, borderRadius: 12, textAlign: 'center' }}>
+                <span style={{ fontSize: 16, fontWeight: 700 }}>R$ {savings.total.toLocaleString('pt-BR')}</span>
+                <p style={{ fontSize: 10, opacity: 0.8, margin: '4px 0 0' }}>Economizado</p>
               </div>
-              <div style={{ background: 'rgba(255,255,255,0.12)', padding: 14, borderRadius: 14, textAlign: 'center' }}>
-                <span style={{ fontSize: 18, fontWeight: 700 }}>{totalXP} XP</span>
-                <p style={{ fontSize: 11, opacity: 0.8, margin: '4px 0 0' }}>Pontuação</p>
+              <div style={{ background: 'rgba(255,255,255,0.12)', padding: 12, borderRadius: 12, textAlign: 'center' }}>
+                <span style={{ fontSize: 16, fontWeight: 700 }}>{totalXP} XP</span>
+                <p style={{ fontSize: 10, opacity: 0.8, margin: '4px 0 0' }}>Pontuação</p>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.12)', padding: 12, borderRadius: 12, textAlign: 'center' }}>
+                <span style={{ fontSize: 16, fontWeight: 700 }}>Nv. {currentLevel.level}</span>
+                <p style={{ fontSize: 10, opacity: 0.8, margin: '4px 0 0' }}>{currentLevel.nome}</p>
               </div>
             </div>
           </div>
@@ -289,21 +313,33 @@ export default function PatientApp({ user, onLogout }) {
     }
     
     const saveEntry = async () => {
-      if (!entry.trim()) return
+      if (!entry.trim()) {
+        alert('Por favor, escreva algo no diário')
+        return
+      }
       setSaving(true)
       try {
-        await supabase.from('diary_entries').insert({
+        const { error } = await supabase.from('diary_entries').insert({
           patient_id: user.id,
           content: entry,
-          mood: mood,
-          emotions: emotions
+          mood: mood || null,
+          emotions: emotions.length > 0 ? emotions : null
         })
-        await loadData()
+        if (error) throw error
+        
+        // Recarregar diário
+        const { data: diary } = await supabase.from('diary_entries').select('*').eq('patient_id', user.id).order('created_at', { ascending: false })
+        if (diary) setDiaryEntries(diary)
+        
         setShowForm(false)
         setEntry('')
         setMood('')
         setEmotions([])
-      } catch (e) { alert('Erro: ' + e.message) }
+        alert('Entrada salva com sucesso!')
+      } catch (e) { 
+        console.error(e)
+        alert('Erro ao salvar: ' + e.message) 
+      }
       finally { setSaving(false) }
     }
     
@@ -344,7 +380,7 @@ export default function PatientApp({ user, onLogout }) {
             />
           </div>
           
-          <button onClick={saveEntry} disabled={saving || !entry.trim()} style={{ width: '100%', background: saving ? C.blancDeBlanc : C.trueBlue, color: C.white, border: 'none', padding: 14, borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>{saving ? 'Salvando...' : 'Salvar Entrada'}</button>
+          <button onClick={saveEntry} disabled={saving} style={{ width: '100%', background: saving ? C.blancDeBlanc : C.trueBlue, color: C.white, border: 'none', padding: 14, borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>{saving ? 'Salvando...' : 'Salvar Entrada'}</button>
         </div>
       )
     }
@@ -405,26 +441,58 @@ export default function PatientApp({ user, onLogout }) {
     }
     
     const addDebt = async () => {
+      if (!note.trim()) {
+        alert('Descreva a dívida quitada')
+        return
+      }
       setSaving(true)
       try {
-        await supabase.from('patient_debts').insert({ patient_id: user.id, amount: parseFloat(amt) || 0, description: note })
-        await loadData()
+        const { error } = await supabase.from('patient_debts').insert({ 
+          patient_id: user.id, 
+          amount: parseFloat(amt) || 0, 
+          description: note 
+        })
+        if (error) throw error
+        
+        const { data: dbt } = await supabase.from('patient_debts').select('*').eq('patient_id', user.id).order('created_at', { ascending: false })
+        if (dbt) setDebts(dbt)
+        
         setShowDebtForm(false)
         setAmt('')
         setNote('')
-      } catch (e) { alert('Erro: ' + e.message) }
+        alert('Dívida quitada registrada!')
+      } catch (e) { 
+        console.error(e)
+        alert('Erro: ' + e.message) 
+      }
       finally { setSaving(false) }
     }
     
     const addPurchase = async () => {
+      if (!note.trim()) {
+        alert('Descreva sua conquista')
+        return
+      }
       setSaving(true)
       try {
-        await supabase.from('patient_purchases').insert({ patient_id: user.id, amount: parseFloat(amt) || 0, description: note })
-        await loadData()
+        const { error } = await supabase.from('patient_purchases').insert({ 
+          patient_id: user.id, 
+          amount: parseFloat(amt) || 0, 
+          description: note 
+        })
+        if (error) throw error
+        
+        const { data: purch } = await supabase.from('patient_purchases').select('*').eq('patient_id', user.id).order('created_at', { ascending: false })
+        if (purch) setPurchases(purch)
+        
         setShowPurchaseForm(false)
         setAmt('')
         setNote('')
-      } catch (e) { alert('Erro: ' + e.message) }
+        alert('Conquista registrada!')
+      } catch (e) { 
+        console.error(e)
+        alert('Erro: ' + e.message) 
+      }
       finally { setSaving(false) }
     }
 
@@ -463,6 +531,7 @@ export default function PatientApp({ user, onLogout }) {
               <div style={{ textAlign: 'center', marginBottom: 16 }}>
                 <p style={{ fontSize: 13, opacity: 0.8, margin: '0 0 4px' }}>Dias sem jogar</p>
                 <span style={{ fontSize: 64, fontWeight: 700 }}>{days}</span>
+                <p style={{ fontSize: 14, opacity: 0.9, margin: '8px 0 0' }}>Level {currentLevel.level} - {currentLevel.nome}</p>
               </div>
               
               {/* Barra de progresso */}
@@ -566,10 +635,12 @@ export default function PatientApp({ user, onLogout }) {
             </div>
             
             {/* Dívidas quitadas */}
-            {debts.length > 0 && (
-              <div style={{ background: C.white, borderRadius: 16, padding: 18, marginBottom: 16, boxShadow: '0 2px 12px rgba(29,63,119,0.06)' }}>
-                <h3 style={{ color: C.trueBlue, fontSize: 15, margin: '0 0 14px', fontWeight: 600 }}>Dívidas Quitadas</h3>
-                {debts.map(d => (
+            <div style={{ background: C.white, borderRadius: 16, padding: 18, marginBottom: 16, boxShadow: '0 2px 12px rgba(29,63,119,0.06)' }}>
+              <h3 style={{ color: C.trueBlue, fontSize: 15, margin: '0 0 14px', fontWeight: 600 }}>Dívidas Quitadas ({debts.length})</h3>
+              {debts.length === 0 ? (
+                <p style={{ color: C.blackRobe, opacity: 0.6, fontSize: 14 }}>Nenhuma dívida quitada registrada ainda</p>
+              ) : (
+                debts.map(d => (
                   <div key={d.id} style={{ padding: '10px 0', borderBottom: `1px solid ${C.blancDeBlanc}` }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: C.blackRobe, fontSize: 14 }}>{d.description}</span>
@@ -577,15 +648,17 @@ export default function PatientApp({ user, onLogout }) {
                     </div>
                     <span style={{ color: C.blackRobe, fontSize: 12, opacity: 0.5 }}>{new Date(d.created_at).toLocaleDateString('pt-BR')}</span>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
             
             {/* Compras/Conquistas */}
-            {purchases.length > 0 && (
-              <div style={{ background: C.white, borderRadius: 16, padding: 18, boxShadow: '0 2px 12px rgba(29,63,119,0.06)' }}>
-                <h3 style={{ color: C.trueBlue, fontSize: 15, margin: '0 0 14px', fontWeight: 600 }}>Conquistas Pessoais</h3>
-                {purchases.map(p => (
+            <div style={{ background: C.white, borderRadius: 16, padding: 18, boxShadow: '0 2px 12px rgba(29,63,119,0.06)' }}>
+              <h3 style={{ color: C.trueBlue, fontSize: 15, margin: '0 0 14px', fontWeight: 600 }}>Conquistas Pessoais ({purchases.length})</h3>
+              {purchases.length === 0 ? (
+                <p style={{ color: C.blackRobe, opacity: 0.6, fontSize: 14 }}>Nenhuma conquista registrada ainda</p>
+              ) : (
+                purchases.map(p => (
                   <div key={p.id} style={{ padding: '10px 0', borderBottom: `1px solid ${C.blancDeBlanc}` }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: C.blackRobe, fontSize: 14 }}>{p.description}</span>
@@ -593,9 +666,9 @@ export default function PatientApp({ user, onLogout }) {
                     </div>
                     <span style={{ color: C.blackRobe, fontSize: 12, opacity: 0.5 }}>{new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </>
         )}
       </div>
@@ -609,6 +682,8 @@ export default function PatientApp({ user, onLogout }) {
     const [saving, setSaving] = useState(false)
     const [groupNotes, setGroupNotes] = useState([])
     const [attendance, setAttendance] = useState([])
+    const [showInterestForm, setShowInterestForm] = useState(false)
+    const [interestSending, setInterestSending] = useState(false)
     
     const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
     
@@ -633,6 +708,24 @@ export default function PatientApp({ user, onLogout }) {
         await loadGroupDetails(selectedGroup)
       } catch (e) { alert('Erro: ' + e.message) }
       finally { setSaving(false) }
+    }
+    
+    const sendInterest = async () => {
+      setInterestSending(true)
+      try {
+        await supabase.from('group_interest').insert({
+          patient_id: user.id,
+          patient_name: profile?.name,
+          patient_email: user.email,
+          status: 'pending'
+        })
+        alert('Interesse registrado! A equipe entrará em contato.')
+        setShowInterestForm(false)
+      } catch (e) { 
+        console.error(e)
+        alert('Erro ao registrar interesse') 
+      }
+      finally { setInterestSending(false) }
     }
     
     if (selectedGroup) {
@@ -695,7 +788,7 @@ export default function PatientApp({ user, onLogout }) {
         <h1 style={{ color: C.trueBlue, fontSize: 22, marginBottom: 20, fontWeight: 600 }}>Meus Grupos</h1>
         
         {myGroups.length === 0 ? (
-          <div style={{ background: C.white, borderRadius: 16, padding: 32, textAlign: 'center', boxShadow: '0 2px 12px rgba(29,63,119,0.06)' }}>
+          <div style={{ background: C.white, borderRadius: 16, padding: 32, textAlign: 'center', boxShadow: '0 2px 12px rgba(29,63,119,0.06)', marginBottom: 20 }}>
             <p style={{ color: C.blackRobe, opacity: 0.6 }}>Você ainda não participa de nenhum grupo de apoio.</p>
           </div>
         ) : (
@@ -705,6 +798,24 @@ export default function PatientApp({ user, onLogout }) {
               <p style={{ color: C.blackRobe, fontSize: 14, margin: 0, opacity: 0.6 }}>{diasSemana[g.day_of_week]} às {g.time?.slice(0, 5)}</p>
             </button>
           ))
+        )}
+        
+        {/* Botão de interesse */}
+        {!showInterestForm ? (
+          <button onClick={() => setShowInterestForm(true)} style={{ width: '100%', background: C.alaskanBlue, color: C.white, border: 'none', padding: 14, borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+            Tenho interesse em participar de um grupo
+          </button>
+        ) : (
+          <div style={{ background: C.white, borderRadius: 16, padding: 20, boxShadow: '0 2px 12px rgba(29,63,119,0.06)' }}>
+            <h3 style={{ color: C.trueBlue, fontSize: 15, margin: '0 0 12px', fontWeight: 600 }}>Registrar Interesse</h3>
+            <p style={{ color: C.blackRobe, fontSize: 14, margin: '0 0 16px', opacity: 0.7 }}>
+              Ao confirmar, a equipe de psicólogos receberá sua solicitação e entrará em contato para incluí-lo em um grupo adequado.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setShowInterestForm(false)} style={{ flex: 1, background: C.blancDeBlanc, border: 'none', color: C.blackRobe, padding: 12, borderRadius: 8, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={sendInterest} disabled={interestSending} style={{ flex: 1, background: C.trueBlue, border: 'none', color: C.white, padding: 12, borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>{interestSending ? '...' : 'Confirmar Interesse'}</button>
+            </div>
+          </div>
         )}
       </div>
     )
@@ -884,7 +995,7 @@ export default function PatientApp({ user, onLogout }) {
           </div>
         </div>
         <button onClick={() => setPage('setup')} style={{ width: '100%', padding: 12, background: C.iceMelt, border: 'none', borderRadius: 10, cursor: 'pointer', marginBottom: 10, color: C.trueBlue, fontWeight: 500 }}>Editar Configurações</button>
-        <button onClick={onLogout} style={{ width: '100%', padding: 12, background: '#ffebee', border: 'none', borderRadius: 10, color: C.danger, cursor: 'pointer', fontWeight: 500 }}>Sair da Conta</button>
+        <button onClick={handleLogout} style={{ width: '100%', padding: 12, background: '#ffebee', border: 'none', borderRadius: 10, color: C.danger, cursor: 'pointer', fontWeight: 500 }}>Sair da Conta</button>
       </div>
     </div>
   )
