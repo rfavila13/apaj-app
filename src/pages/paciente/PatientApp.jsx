@@ -893,6 +893,207 @@ export default function PatientApp({ user, onLogout }) {
     </div>
   )
 
+  // ========== AJUDA COM AUTOEXCLUSÃO ==========
+  const Help = () => {
+    const [showForm, setShowForm] = useState(false)
+    const [f, setF] = useState({ name: profile?.name || '', phone: profile?.phone || '', message: '' })
+    const [sending, setSending] = useState(false)
+    const [sent, setSent] = useState(false)
+    
+    const send = async (e) => { 
+      e.preventDefault()
+      setSending(true)
+      try { 
+        await publicService.sendContactRequest(f)
+        setSent(true) 
+      } catch (e) { alert('Erro: ' + e.message) } 
+      finally { setSending(false) } 
+    }
+    
+    if (sent) return (
+      <div style={{ padding: 20, paddingBottom: 100, textAlign: 'center' }}>
+        <h2 style={{ color: C.trueBlue, margin: '40px 0 16px' }}>Solicitação Enviada!</h2>
+        <p style={{ color: C.blackRobe, opacity: 0.6 }}>Em breve entraremos em contato.</p>
+        <button onClick={() => { setSent(false); setShowForm(false) }} style={{ marginTop: 24, background: C.trueBlue, color: C.white, border: 'none', padding: '12px 28px', borderRadius: 10, cursor: 'pointer' }}>Voltar</button>
+      </div>
+    )
+    
+    if (showForm) return (
+      <div style={{ padding: 20, paddingBottom: 100 }}>
+        <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', color: C.trueBlue, marginBottom: 16, cursor: 'pointer', fontWeight: 500 }}>← Voltar</button>
+        <h1 style={{ color: C.trueBlue, fontSize: 22, marginBottom: 20, fontWeight: 600 }}>Falar com a APAJ</h1>
+        <form onSubmit={send} style={{ background: C.white, borderRadius: 16, padding: 20, boxShadow: '0 2px 16px rgba(29,63,119,0.08)' }}>
+          <input type="text" placeholder="Seu nome" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} style={{ width: '100%', padding: 12, border: `1px solid ${C.blancDeBlanc}`, borderRadius: 10, marginBottom: 12, boxSizing: 'border-box' }} />
+          <input type="tel" placeholder="Telefone (WhatsApp)" value={f.phone} onChange={e => setF({ ...f, phone: e.target.value })} style={{ width: '100%', padding: 12, border: `1px solid ${C.blancDeBlanc}`, borderRadius: 10, marginBottom: 12, boxSizing: 'border-box' }} />
+          <textarea placeholder="Conte sua história..." value={f.message} onChange={e => setF({ ...f, message: e.target.value })} style={{ width: '100%', padding: 12, border: `1px solid ${C.blancDeBlanc}`, borderRadius: 10, marginBottom: 14, minHeight: 100, resize: 'none', boxSizing: 'border-box' }} />
+          <button type="submit" disabled={sending || !f.phone} style={{ width: '100%', background: C.trueBlue, color: C.white, border: 'none', padding: 14, borderRadius: 10, fontWeight: 600, cursor: 'pointer' }}>{sending ? 'Enviando...' : 'Enviar Solicitação'}</button>
+        </form>
+      </div>
+    )
+    
+    return (
+      <div style={{ padding: 20, paddingBottom: 100 }}>
+        <h1 style={{ color: C.trueBlue, fontSize: 22, marginBottom: 20, fontWeight: 600 }}>Como buscar ajuda</h1>
+        
+        {/* DESTAQUE: Autoexclusão Centralizada */}
+        <div style={{ background: 'linear-gradient(135deg, #1d3f77 0%, #66aae2 100%)', borderRadius: 16, padding: 20, marginBottom: 20, color: C.white, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: -20, right: -20, width: 100, height: 100, background: 'rgba(255,255,255,0.1)', borderRadius: '50%' }} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 28 }}>🛡️</span>
+              <h2 style={{ fontSize: 17, margin: 0, fontWeight: 700 }}>AUTOEXCLUSÃO CENTRALIZADA</h2>
+            </div>
+            <p style={{ fontSize: 14, margin: '0 0 6px', opacity: 0.95, lineHeight: 1.5 }}>
+              O Governo Federal oferece um sistema gratuito para você se excluir de TODAS as casas de apostas do Brasil de uma só vez.
+            </p>
+            <p style={{ fontSize: 13, margin: '0 0 16px', opacity: 0.85, lineHeight: 1.4 }}>
+              É um passo importante na sua recuperação. A exclusão pode durar de 6 meses a 5 anos, conforme sua escolha.
+            </p>
+            <a 
+              href="https://gov.br/autoexclusaoapostas" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                gap: 8,
+                background: C.white, 
+                color: C.trueBlue, 
+                textDecoration: 'none', 
+                padding: '14px 20px', 
+                borderRadius: 12, 
+                fontWeight: 700,
+                fontSize: 15,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+              }}
+            >
+              Acessar Sistema de Autoexclusão
+              <span style={{ fontSize: 18 }}>→</span>
+            </a>
+          </div>
+        </div>
+        
+        {/* Alerta Urgente */}
+        <div style={{ background: C.danger, borderRadius: 16, padding: 18, marginBottom: 20, color: C.white }}>
+          <h2 style={{ fontSize: 15, margin: '0 0 10px', fontWeight: 700 }}>🚨 PRECISA DE AJUDA URGENTE?</h2>
+          <p style={{ fontSize: 14, margin: '0 0 12px', opacity: 0.95 }}>Entre em contato com o 192 ou se encaminhe para uma UPA</p>
+          <a href="https://meususdigital.saude.gov.br/rede-saude" target="_blank" rel="noopener noreferrer" style={{ display: 'block', background: C.white, color: C.danger, textDecoration: 'none', padding: '12px 16px', borderRadius: 10, textAlign: 'center', fontSize: 14, fontWeight: 600 }}>
+            Encontre a UPA mais próxima
+          </a>
+        </div>
+        
+        {/* APAJ */}
+        <div style={{ background: C.trueBlue, borderRadius: 16, padding: 20, marginBottom: 20, color: C.white }}>
+          <h2 style={{ fontSize: 16, margin: '0 0 8px', fontWeight: 600 }}>Como a APAJ pode te ajudar?</h2>
+          <p style={{ fontSize: 14, opacity: 0.9, marginBottom: 14 }}>Nos conte a sua história e deixe-nos ajudá-lo.</p>
+          <button onClick={() => setShowForm(true)} style={{ background: C.white, color: C.trueBlue, border: 'none', padding: '12px 20px', borderRadius: 10, fontWeight: 600, cursor: 'pointer', width: '100%' }}>Solicitar Conversa</button>
+        </div>
+        
+        {/* Alternativas de Ajuda */}
+        <div style={{ background: C.white, borderRadius: 16, padding: 20, boxShadow: '0 2px 16px rgba(29,63,119,0.08)' }}>
+          <h2 style={{ color: C.trueBlue, fontSize: 16, marginBottom: 16, fontWeight: 600 }}>Alternativas de Ajuda</h2>
+          
+          <a href="https://meususdigital.saude.gov.br/rede-saude" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 14, background: C.iceMelt, borderRadius: 12, marginBottom: 10, textDecoration: 'none' }}>
+            <span style={{ fontSize: 24 }}>🏥</span>
+            <div>
+              <h3 style={{ color: C.trueBlue, fontSize: 14, margin: '0 0 2px', fontWeight: 600 }}>Sistema Único de Saúde (SUS)</h3>
+              <p style={{ color: C.blackRobe, fontSize: 12, margin: 0, opacity: 0.6 }}>Encontre a unidade mais próxima</p>
+            </div>
+          </a>
+          
+          <a href="https://iaapostador.org" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 14, background: C.iceMelt, borderRadius: 12, marginBottom: 10, textDecoration: 'none' }}>
+            <span style={{ fontSize: 24 }}>🤝</span>
+            <div>
+              <h3 style={{ color: C.trueBlue, fontSize: 14, margin: '0 0 2px', fontWeight: 600 }}>Instituto de Apoio ao Apostador</h3>
+              <p style={{ color: C.blackRobe, fontSize: 12, margin: 0, opacity: 0.6 }}>iaapostador.org</p>
+            </div>
+          </a>
+          
+          <a href="https://gov.br/bets" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 14, background: C.iceMelt, borderRadius: 12, marginBottom: 10, textDecoration: 'none' }}>
+            <span style={{ fontSize: 24 }}>📋</span>
+            <div>
+              <h3 style={{ color: C.trueBlue, fontSize: 14, margin: '0 0 2px', fontWeight: 600 }}>Informações sobre jogos e apostas</h3>
+              <p style={{ color: C.blackRobe, fontSize: 12, margin: 0, opacity: 0.6 }}>gov.br/bets</p>
+            </div>
+          </a>
+          
+          <a href="https://gov.br/autoexclusaoapostas" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 14, background: '#e8f5e9', borderRadius: 12, textDecoration: 'none' }}>
+            <span style={{ fontSize: 24 }}>🛡️</span>
+            <div>
+              <h3 style={{ color: '#2e7d32', fontSize: 14, margin: '0 0 2px', fontWeight: 600 }}>Autoexclusão Centralizada</h3>
+              <p style={{ color: C.blackRobe, fontSize: 12, margin: 0, opacity: 0.6 }}>gov.br/autoexclusaoapostas</p>
+            </div>
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  // ========== PERFIL ==========
+  const Profile = () => (
+    <div style={{ padding: 20, paddingBottom: 100 }}>
+      <h1 style={{ color: C.trueBlue, fontSize: 22, marginBottom: 20, fontWeight: 600 }}>Perfil</h1>
+      <div style={{ background: C.white, borderRadius: 16, padding: 20, marginBottom: 20, boxShadow: '0 2px 16px rgba(29,63,119,0.08)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+          <div style={{ width: 60, height: 60, background: C.trueBlue, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: C.white, fontWeight: 600 }}>{profile?.name ? profile.name.charAt(0).toUpperCase() : '?'}</div>
+          <div>
+            <h2 style={{ color: C.trueBlue, fontSize: 18, margin: '0 0 4px', fontWeight: 600 }}>{profile?.name || 'Usuário'}</h2>
+            <p style={{ color: C.blackRobe, fontSize: 13, margin: 0, opacity: 0.6 }}>{user.email}</p>
+          </div>
+        </div>
+        
+        {/* Resumo de XP */}
+        <div style={{ background: C.iceMelt, borderRadius: 12, padding: 14, marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: C.trueBlue, fontWeight: 600 }}>Level {currentLevel.level} - {currentLevel.nome}</span>
+            <span style={{ color: C.alaskanBlue, fontWeight: 700, fontSize: 18 }}>{totalXP} XP</span>
+          </div>
+        </div>
+        
+        <button onClick={() => setPage('setup')} style={{ width: '100%', padding: 12, background: C.iceMelt, border: 'none', borderRadius: 10, cursor: 'pointer', marginBottom: 10, color: C.trueBlue, fontWeight: 500 }}>Editar Configurações</button>
+        <button onClick={handleLogout} style={{ width: '100%', padding: 12, background: '#ffebee', border: 'none', borderRadius: 10, color: C.danger, cursor: 'pointer', fontWeight: 500 }}>Sair da Conta</button>
+      </div>
+    </div>
+  )
+
+  const renderPage = () => {
+    switch (page) {
+      case 'home': return <Home />
+      case 'setup': return <Setup />
+      case 'diary': return <Diary />
+      case 'progress': return <Progress />
+      case 'groups': return <Groups />
+      case 'tips': return <Tips />
+      case 'help': return <Help />
+      case 'profile': return <Profile />
+      default: return <Home />
+    }
+  }
+
+  if (loading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.iceMelt }}><p style={{ color: C.trueBlue }}>Carregando...</p></div>
+
+  return (
+    <div style={{ fontFamily: 'system-ui, sans-serif', background: C.iceMelt, minHeight: '100vh', maxWidth: 480, margin: '0 auto', position: 'relative' }}>
+      {renderPage()}
+      <NavBar />
+    </div>
+  )
+} de jogar passa em 15-20 minutos. Tente estas estratégias:
+        </p>
+        <ul style={{ color: C.blackRobe, fontSize: 14, lineHeight: 1.8, margin: 0, paddingLeft: 20, opacity: 0.7 }}>
+          <li>Respire fundo: inspire por 4 segundos, segure por 4, expire por 4</li>
+          <li>Ligue para alguém de confiança imediatamente</li>
+          <li>Saia do ambiente onde está</li>
+          <li>Tome um banho gelado</li>
+          <li>Faça exercício físico intenso</li>
+          <li>Escreva no diário o que está sentindo</li>
+          <li>Relembre suas conquistas e o que já perdeu com o jogo</li>
+        </ul>
+      </div>
+    </div>
+  )
+
   // ========== AJUDA ==========
   const Help = () => {
     const [showForm, setShowForm] = useState(false)
