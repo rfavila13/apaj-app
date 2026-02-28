@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from 'react'
 import { patientService } from '../../services/patientService'
-import { publicService } from '../../services/publicService'
 import { supabase } from '../../services/supabase'
 import { analyzeTriggers, generateRiskReport } from '../../utils/triggerAnalyzer'
 import SOSFissura from '../../components/SOSFissura'
 import GoalsTracker from '../../components/GoalsTracker'
+import EpisodeProcessor from '../../components/EpisodeProcessor'
+import NightMode from '../../components/NightMode'
+import VaultManager from '../../components/VaultManager'
+import BehavioralContract from '../../components/BehavioralContract'
+import CrisisPlan from '../../components/CrisisPlan'
+import MentorSystem from '../../components/MentorSystem'
+import VictoryWall from '../../components/VictoryWall'
 import { VideoFeed, AutoexclusaoCentral, DoacaoAPAJ } from '../../components/APAJEcosystem'
 
 const C = { trueBlue: '#1d3f77', alaskanBlue: '#66aae2', iceMelt: '#d4eaff', blackRobe: '#2b2b2b', blancDeBlanc: '#e9e9ea', white: '#ffffff', success: '#28a068', warning: '#e8a040', danger: '#d04040' }
@@ -27,19 +33,39 @@ export default function PatientApp({ user, onLogout }) {
   const [goals, setGoals] = useState([])
   const [showSOS, setShowSOS] = useState(false)
   const [riskAlert, setRiskAlert] = useState(null)
+  const [vault, setVault] = useState([])
+  const [contract, setContract] = useState(null)
+  const [crisisPlan, setCrisisPlan] = useState(null)
+  const [episodes, setEpisodes] = useState([])
+  const [nightActive, setNightActive] = useState(false)
 
   useEffect(() => { loadData() }, [user])
   useEffect(() => { const i = setInterval(() => setFraseIndex(x => (x + 1) % FRASES.length), 10000); return () => clearInterval(i) }, [])
+  useEffect(() => {
+    if (!profile?.night_mode_settings?.enabled) { setNightActive(false); return }
+    const check = () => {
+      const h = new Date().getHours()
+      const { start_hour, end_hour } = profile.night_mode_settings
+      setNightActive(start_hour < end_hour ? (h >= start_hour && h < end_hour) : (h >= start_hour || h < end_hour))
+    }
+    check()
+    const i = setInterval(check, 60000)
+    return () => clearInterval(i)
+  }, [profile])
 
   const loadData = async () => {
     try {
-      const [p, r, diary, dbt, purch, gls] = await Promise.all([
+      const [p, r, diary, dbt, purch, gls, vlt, ctr, cp, ep] = await Promise.all([
         patientService.getMyProfile(user.id),
         patientService.getMyRelapses(user.id),
         supabase.from('diary_entries').select('*').eq('patient_id', user.id).order('created_at', { ascending: false }),
         supabase.from('patient_debts').select('*').eq('patient_id', user.id).order('created_at', { ascending: false }),
         supabase.from('patient_purchases').select('*').eq('patient_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('patient_goals').select('*').eq('patient_id', user.id).order('created_at', { ascending: false })
+        supabase.from('patient_goals').select('*').eq('patient_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('evidence_vault').select('*').eq('patient_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('behavioral_contracts').select('*').eq('patient_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('crisis_plans').select('*').eq('patient_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('episodes').select('*').eq('patient_id', user.id).order('created_at', { ascending: false })
       ])
       if (p.data) setProfile(p.data)
       if (r.data) setRelapses(r.data)
@@ -47,6 +73,10 @@ export default function PatientApp({ user, onLogout }) {
       if (dbt.data) setDebts(dbt.data)
       if (purch.data) setPurchases(purch.data)
       if (gls.data) setGoals(gls.data)
+      if (vlt.data) setVault(vlt.data)
+      if (ctr.data) setContract(ctr.data)
+      if (cp.data) setCrisisPlan(cp.data)
+      if (ep.data) setEpisodes(ep.data)
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
@@ -55,6 +85,11 @@ export default function PatientApp({ user, onLogout }) {
     const analysis = analyzeTriggers(entries)
     const report = generateRiskReport(analysis)
     setRiskAlert(report)
+  }
+
+  const publishVictory = async (type, message) => {
+    try { await supabase.from('anonymous_victories').insert({ type, message }) }
+    catch (e) { console.error('Erro ao publicar vitória:', e) }
   }
 
   const handleLogout = async () => { await supabase.auth.signOut(); if (onLogout) onLogout() }
@@ -67,7 +102,7 @@ export default function PatientApp({ user, onLogout }) {
 
   const NavBar = () => (
     <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.trueBlue, padding: '8px 0 12px', display: 'flex', justifyContent: 'space-around', zIndex: 1000, borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
-      {[{ id: 'home', icon: '🏠', label: 'Início' }, { id: 'progress', icon: '📈', label: 'Progresso' }, { id: 'diary', icon: '📔', label: 'Diário' }, { id: 'apaj', icon: '💙', label: 'APAJ' }, { id: 'profile', icon: '👤', label: 'Perfil' }].map(i => (
+      {[{ id: 'home', icon: '🏠', label: 'Início' }, { id: 'progress', icon: '📈', label: 'Progresso' }, { id: 'diary', icon: '📔', label: 'Diário' }, { id: 'tools', icon: '🔧', label: 'Ferramentas' }, { id: 'profile', icon: '👤', label: 'Perfil' }].map(i => (
         <button key={i.id} onClick={() => setPage(i.id)} style={{ background: page === i.id ? 'rgba(255,255,255,0.15)' : 'transparent', border: 'none', color: C.white, padding: '6px 10px', borderRadius: 12, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
           <span style={{ fontSize: 20 }}>{i.icon}</span><span style={{ fontSize: 9, fontWeight: page === i.id ? 600 : 400 }}>{i.label}</span>
         </button>
@@ -88,7 +123,6 @@ export default function PatientApp({ user, onLogout }) {
         <img src="/logo-apaj.png" alt="APAJ" style={{ width: 100, height: 'auto', marginBottom: 8 }} />
         <p style={{ color: C.blackRobe, fontSize: 14, opacity: 0.7 }}>Olá, {profile?.name?.split(' ')[0] || 'Bem-vindo'}!</p>
       </div>
-      
       {riskAlert && (
         <div style={{ background: riskAlert.level === 'high' ? C.danger : C.warning, borderRadius: 14, padding: 16, marginBottom: 16, color: C.white }}>
           <p style={{ margin: '0 0 8px', fontWeight: 600 }}>⚠️ {riskAlert.level === 'high' ? 'Alerta de Risco' : 'Atenção'}</p>
@@ -100,11 +134,9 @@ export default function PatientApp({ user, onLogout }) {
           )}
         </div>
       )}
-      
       <div style={{ background: C.alaskanBlue, borderRadius: 14, padding: '14px 18px', marginBottom: 16, textAlign: 'center' }}>
         <p style={{ color: C.white, fontSize: 13, fontStyle: 'italic', margin: 0 }}>"{FRASES[fraseIndex]}"</p>
       </div>
-      
       {profile?.sober_start_date ? (
         <div style={{ background: C.trueBlue, borderRadius: 20, padding: 24, marginBottom: 16, color: C.white }}>
           <div style={{ textAlign: 'center', marginBottom: 16 }}>
@@ -113,7 +145,7 @@ export default function PatientApp({ user, onLogout }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
             <div style={{ background: 'rgba(255,255,255,0.12)', padding: 12, borderRadius: 12, textAlign: 'center' }}>
-              <span style={{ fontSize: 15, fontWeight: 700 }}>R$ {savings.total.toLocaleString('pt-BR')}</span>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>R$ {Math.floor(savings.total).toLocaleString('pt-BR')}</span>
               <p style={{ fontSize: 10, opacity: 0.8, margin: '4px 0 0' }}>Economizado</p>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.12)', padding: 12, borderRadius: 12, textAlign: 'center' }}>
@@ -133,7 +165,6 @@ export default function PatientApp({ user, onLogout }) {
           <button onClick={() => setPage('setup')} style={{ background: C.trueBlue, color: C.white, border: 'none', padding: '12px 28px', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Configurar Agora</button>
         </div>
       )}
-      
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <button onClick={() => setPage('goals')} style={{ background: C.white, border: 'none', borderRadius: 14, padding: 16, cursor: 'pointer', textAlign: 'left' }}>
           <span style={{ fontSize: 24 }}>🎯</span>
@@ -150,30 +181,48 @@ export default function PatientApp({ user, onLogout }) {
   )
 
   const Setup = () => {
-    const [f, setF] = useState({ name: profile?.name || '', phone: profile?.phone || '', monthly_income: profile?.monthly_income || '', previous_gambling_amount: profile?.previous_gambling_amount || '', sober_start_date: profile?.sober_start_date || new Date().toISOString().split('T')[0], emergency_contact_name: profile?.emergency_contact?.name || '', emergency_contact_phone: profile?.emergency_contact?.phone || '' })
+    const [f, setF] = useState({
+      name: profile?.name || '',
+      phone: profile?.phone || '',
+      monthly_income: profile?.monthly_income || '',
+      previous_gambling_amount: profile?.previous_gambling_amount || '',
+      sober_start_date: profile?.sober_start_date || new Date().toISOString().split('T')[0],
+      emergency_contact_name: profile?.emergency_contact?.name || '',
+      emergency_contact_phone: profile?.emergency_contact?.phone || ''
+    })
     const [saving, setSaving] = useState(false)
     const save = async (e) => {
-      e.preventDefault(); setSaving(true)
-      try { 
-        await patientService.updateProfile(user.id, { name: f.name, phone: f.phone, monthly_income: parseFloat(f.monthly_income) || 0, previous_gambling_amount: parseFloat(f.previous_gambling_amount) || 0, sober_start_date: f.sober_start_date, emergency_contact: { name: f.emergency_contact_name, phone: f.emergency_contact_phone } })
-        await loadData(); setPage('home') 
-      } catch (e) { alert('Erro: ' + e.message) }
+      e.preventDefault()
+      setSaving(true)
+      try {
+        await patientService.updateProfile(user.id, {
+          name: f.name, phone: f.phone,
+          monthly_income: parseFloat(f.monthly_income) || 0,
+          previous_gambling_amount: parseFloat(f.previous_gambling_amount) || 0,
+          sober_start_date: f.sober_start_date,
+          emergency_contact: { name: f.emergency_contact_name, phone: f.emergency_contact_phone }
+        })
+        await loadData()
+        setPage('home')
+      } catch (err) { alert('Erro: ' + err.message) }
       finally { setSaving(false) }
     }
+    const inputStyle = { width: '100%', padding: '11px 14px', border: '1px solid ' + C.blancDeBlanc, borderRadius: 10, fontSize: 14, boxSizing: 'border-box' }
+    const labelStyle = { display: 'block', color: C.blackRobe, marginBottom: 6, fontSize: 12, fontWeight: 500 }
     return (
       <div style={{ padding: 20, paddingBottom: 100 }}>
         <button onClick={() => setPage('home')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button>
         <h1 style={{ color: C.trueBlue, fontSize: 20, marginBottom: 20, fontWeight: 600 }}>Configurar Perfil</h1>
         <form onSubmit={save} style={{ background: C.white, borderRadius: 16, padding: 20 }}>
-          <div style={{ marginBottom: 14 }}><label style={{ display: 'block', color: C.blackRobe, marginBottom: 6, fontSize: 12, fontWeight: 500 }}>Seu nome</label><input type="text" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} style={{ width: '100%', padding: '11px 14px', border: '1px solid ' + C.blancDeBlanc, borderRadius: 10, fontSize: 14, boxSizing: 'border-box' }} /></div>
-          <div style={{ marginBottom: 14 }}><label style={{ display: 'block', color: C.blackRobe, marginBottom: 6, fontSize: 12, fontWeight: 500 }}>Seu telefone</label><input type="tel" value={f.phone} onChange={e => setF({ ...f, phone: e.target.value })} style={{ width: '100%', padding: '11px 14px', border: '1px solid ' + C.blancDeBlanc, borderRadius: 10, fontSize: 14, boxSizing: 'border-box' }} /></div>
-          <div style={{ marginBottom: 14 }}><label style={{ display: 'block', color: C.blackRobe, marginBottom: 6, fontSize: 12, fontWeight: 500 }}>Renda mensal (R$)</label><input type="number" value={f.monthly_income} onChange={e => setF({ ...f, monthly_income: e.target.value })} style={{ width: '100%', padding: '11px 14px', border: '1px solid ' + C.blancDeBlanc, borderRadius: 10, fontSize: 14, boxSizing: 'border-box' }} /></div>
-          <div style={{ marginBottom: 14 }}><label style={{ display: 'block', color: C.blackRobe, marginBottom: 6, fontSize: 12, fontWeight: 500 }}>Quanto gastava/mês em apostas?</label><input type="number" value={f.previous_gambling_amount} onChange={e => setF({ ...f, previous_gambling_amount: e.target.value })} style={{ width: '100%', padding: '11px 14px', border: '1px solid ' + C.blancDeBlanc, borderRadius: 10, fontSize: 14, boxSizing: 'border-box' }} /></div>
-          <div style={{ marginBottom: 14 }}><label style={{ display: 'block', color: C.blackRobe, marginBottom: 6, fontSize: 12, fontWeight: 500 }}>Data de início da recuperação</label><input type="date" value={f.sober_start_date} onChange={e => setF({ ...f, sober_start_date: e.target.value })} style={{ width: '100%', padding: '11px 14px', border: '1px solid ' + C.blancDeBlanc, borderRadius: 10, fontSize: 14, boxSizing: 'border-box' }} /></div>
+          <div style={{ marginBottom: 14 }}><label style={labelStyle}>Seu nome</label><input type="text" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} style={inputStyle} /></div>
+          <div style={{ marginBottom: 14 }}><label style={labelStyle}>Seu telefone</label><input type="tel" value={f.phone} onChange={e => setF({ ...f, phone: e.target.value })} style={inputStyle} /></div>
+          <div style={{ marginBottom: 14 }}><label style={labelStyle}>Renda mensal (R$)</label><input type="number" value={f.monthly_income} onChange={e => setF({ ...f, monthly_income: e.target.value })} style={inputStyle} /></div>
+          <div style={{ marginBottom: 14 }}><label style={labelStyle}>Quanto gastava/mês em apostas?</label><input type="number" value={f.previous_gambling_amount} onChange={e => setF({ ...f, previous_gambling_amount: e.target.value })} style={inputStyle} /></div>
+          <div style={{ marginBottom: 14 }}><label style={labelStyle}>Data de início da recuperação</label><input type="date" value={f.sober_start_date} onChange={e => setF({ ...f, sober_start_date: e.target.value })} style={inputStyle} /></div>
           <div style={{ background: C.iceMelt, borderRadius: 12, padding: 14, marginBottom: 14 }}>
             <p style={{ color: C.trueBlue, fontSize: 13, margin: '0 0 12px', fontWeight: 600 }}>📱 Contato de Emergência (SOS)</p>
-            <input type="text" placeholder="Nome do contato" value={f.emergency_contact_name} onChange={e => setF({ ...f, emergency_contact_name: e.target.value })} style={{ width: '100%', padding: '11px 14px', border: '1px solid ' + C.blancDeBlanc, borderRadius: 10, fontSize: 14, boxSizing: 'border-box', marginBottom: 10 }} />
-            <input type="tel" placeholder="WhatsApp do contato (com DDD)" value={f.emergency_contact_phone} onChange={e => setF({ ...f, emergency_contact_phone: e.target.value })} style={{ width: '100%', padding: '11px 14px', border: '1px solid ' + C.blancDeBlanc, borderRadius: 10, fontSize: 14, boxSizing: 'border-box' }} />
+            <input type="text" placeholder="Nome do contato" value={f.emergency_contact_name} onChange={e => setF({ ...f, emergency_contact_name: e.target.value })} style={{ ...inputStyle, marginBottom: 10 }} />
+            <input type="tel" placeholder="WhatsApp do contato (com DDD)" value={f.emergency_contact_phone} onChange={e => setF({ ...f, emergency_contact_phone: e.target.value })} style={inputStyle} />
           </div>
           <button type="submit" disabled={saving} style={{ width: '100%', background: saving ? C.blancDeBlanc : C.trueBlue, color: C.white, border: 'none', padding: 14, borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>{saving ? 'Salvando...' : 'Salvar'}</button>
         </form>
@@ -189,13 +238,15 @@ export default function PatientApp({ user, onLogout }) {
     const [saving, setSaving] = useState(false)
     const toggleEmotion = (e) => setEmotions(emotions.includes(e) ? emotions.filter(x => x !== e) : [...emotions, e])
     const saveEntry = async (e) => {
-      e.preventDefault(); if (!mood) { alert('Selecione como você está'); return }; setSaving(true)
+      e.preventDefault()
+      if (!mood) { alert('Selecione como você está'); return }
+      setSaving(true)
       try {
         await supabase.from('diary_entries').insert({ patient_id: user.id, content: entry || null, mood, emotions: emotions.length > 0 ? emotions : null })
         const { data } = await supabase.from('diary_entries').select('*').eq('patient_id', user.id).order('created_at', { ascending: false })
         if (data) { setDiaryEntries(data); analyzeRisk(data) }
         setShowForm(false); setEntry(''); setMood(''); setEmotions([])
-      } catch (e) { alert('Erro: ' + e.message) }
+      } catch (err) { alert('Erro: ' + err.message) }
       finally { setSaving(false) }
     }
     if (showForm) return (
@@ -217,8 +268,8 @@ export default function PatientApp({ user, onLogout }) {
           <div style={{ background: C.white, borderRadius: 14, padding: 18, marginBottom: 14 }}>
             <h3 style={{ color: C.trueBlue, fontSize: 14, margin: '0 0 12px', fontWeight: 600 }}>Emoções presentes</h3>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {EMOTIONS.map(e => (
-                <button key={e} type="button" onClick={() => toggleEmotion(e)} style={{ background: emotions.includes(e) ? (e === 'Fissura' ? C.danger : C.alaskanBlue) : C.blancDeBlanc, color: emotions.includes(e) ? C.white : C.blackRobe, border: 'none', padding: '7px 12px', borderRadius: 16, fontSize: 12, cursor: 'pointer' }}>{e}</button>
+              {EMOTIONS.map(em => (
+                <button key={em} type="button" onClick={() => toggleEmotion(em)} style={{ background: emotions.includes(em) ? (em === 'Fissura' ? C.danger : C.alaskanBlue) : C.blancDeBlanc, color: emotions.includes(em) ? C.white : C.blackRobe, border: 'none', padding: '7px 12px', borderRadius: 16, fontSize: 12, cursor: 'pointer' }}>{em}</button>
               ))}
             </div>
           </div>
@@ -232,185 +283,17 @@ export default function PatientApp({ user, onLogout }) {
     )
     return (
       <div style={{ padding: 20, paddingBottom: 100 }}>
-        <h1 style={{ color: C.trueBlue, fontSize: 20, marginBottom: 16, fontWeight: 600 }}>Diário</h1>
-        <button onClick={() => setShowForm(true)} style={{ width: '100%', background: C.trueBlue, color: C.white, border: 'none', padding: 14, borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 16 }}>+ Nova Entrada</button>
+        <h1 style={{ color: C.trueBlue, fontSize: 18, marginBottom: 14, fontWeight: 600 }}>Diário</h1>
+        <button onClick={() => setShowForm(true)} style={{ width: '100%', background: C.trueBlue, color: C.white, border: 'none', padding: 12, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 14 }}>+ Nova Entrada</button>
         {diaryEntries.length === 0 ? (
-          <div style={{ background: C.white, borderRadius: 14, padding: 32, textAlign: 'center' }}><p style={{ color: C.blackRobe, opacity: 0.6 }}>Nenhuma entrada ainda</p></div>
-        ) : diaryEntries.map(d => (
-          <div key={d.id} style={{ background: C.white, borderRadius: 14, padding: 16, marginBottom: 10 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ color: C.trueBlue, fontSize: 12, fontWeight: 600 }}>{new Date(d.created_at).toLocaleDateString('pt-BR')}</span>
-              {d.mood && <span style={{ background: MOOD_CONFIG[d.mood]?.bg || C.iceMelt, color: MOOD_CONFIG[d.mood]?.color || C.trueBlue, padding: '3px 10px', borderRadius: 10, fontSize: 11 }}>{MOOD_CONFIG[d.mood]?.icon} {d.mood}</span>}
+          <div style={{ background: C.white, borderRadius: 12, padding: 28, textAlign: 'center' }}><p style={{ color: C.blackRobe, opacity: 0.6, margin: 0 }}>Nenhuma entrada</p></div>
+        ) : diaryEntries.slice(0, 15).map(d => (
+          <div key={d.id} style={{ background: C.white, borderRadius: 12, padding: 14, marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ color: C.trueBlue, fontSize: 11, fontWeight: 600 }}>{new Date(d.created_at).toLocaleDateString('pt-BR')}</span>
+              {d.mood && <span style={{ background: MOOD_CONFIG[d.mood]?.bg || C.iceMelt, color: MOOD_CONFIG[d.mood]?.color || C.trueBlue, padding: '2px 8px', borderRadius: 8, fontSize: 10 }}>{MOOD_CONFIG[d.mood]?.icon} {d.mood}</span>}
             </div>
-            {d.emotions?.length > 0 && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>{d.emotions.map(e => <span key={e} style={{ background: e === 'Fissura' ? '#ffebee' : C.blancDeBlanc, color: e === 'Fissura' ? C.danger : C.blackRobe, padding: '2px 8px', borderRadius: 8, fontSize: 10 }}>{e}</span>)}</div>}
-            {d.content && <p style={{ color: C.blackRobe, fontSize: 13, lineHeight: 1.5, margin: 0 }}>{d.content}</p>}
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  const Progress = () => {
-    const [showRelapseForm, setShowRelapseForm] = useState(false)
-    const [showDebtForm, setShowDebtForm] = useState(false)
-    const [showPurchaseForm, setShowPurchaseForm] = useState(false)
-    const [amt, setAmt] = useState('')
-    const [note, setNote] = useState('')
-    const [saving, setSaving] = useState(false)
-    const addRelapse = async (e) => { e.preventDefault(); setSaving(true); try { await patientService.addRelapse(user.id, { amount: parseFloat(amt) || 0, notes: note }); await loadData(); setShowRelapseForm(false); setAmt(''); setNote('') } catch (e) { alert('Erro: ' + e.message) } finally { setSaving(false) } }
-    const addDebt = async (e) => { e.preventDefault(); if (!note.trim()) { alert('Descreva a dívida'); return }; setSaving(true); try { await supabase.from('patient_debts').insert({ patient_id: user.id, amount: parseFloat(amt) || 0, description: note }); await loadData(); setShowDebtForm(false); setAmt(''); setNote('') } catch (e) { alert('Erro: ' + e.message) } finally { setSaving(false) } }
-    const addPurchase = async (e) => { e.preventDefault(); if (!note.trim()) { alert('Descreva a conquista'); return }; setSaving(true); try { await supabase.from('patient_purchases').insert({ patient_id: user.id, amount: parseFloat(amt) || 0, description: note }); await loadData(); setShowPurchaseForm(false); setAmt(''); setNote('') } catch (e) { alert('Erro: ' + e.message) } finally { setSaving(false) } }
-    if (!profile?.sober_start_date) return (<div style={{ padding: 20, paddingBottom: 100, textAlign: 'center' }}><h2 style={{ color: C.trueBlue, marginTop: 40 }}>Configure seu perfil</h2><button onClick={() => setPage('setup')} style={{ marginTop: 20, background: C.trueBlue, color: C.white, border: 'none', padding: '12px 28px', borderRadius: 10, cursor: 'pointer' }}>Configurar</button></div>)
-    return (
-      <div style={{ padding: 20, paddingBottom: 100 }}>
-        <div style={{ background: C.trueBlue, borderRadius: 18, padding: 22, marginBottom: 16, color: C.white }}>
-          <div style={{ textAlign: 'center', marginBottom: 14 }}>
-            <p style={{ fontSize: 12, opacity: 0.8, margin: '0 0 4px' }}>Dias sem apostar</p>
-            <span style={{ fontSize: 56, fontWeight: 700 }}>{days}</span>
-            <p style={{ fontSize: 13, margin: '8px 0 0' }}>Level {currentLevel.level} - {currentLevel.nome}</p>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div style={{ background: 'rgba(255,255,255,0.12)', padding: 12, borderRadius: 10, textAlign: 'center' }}><span style={{ fontSize: 18, fontWeight: 700 }}>R$ {savings.total.toLocaleString('pt-BR')}</span><p style={{ fontSize: 10, opacity: 0.8, margin: '4px 0 0' }}>Economizado</p></div>
-            <div style={{ background: 'rgba(255,255,255,0.12)', padding: 12, borderRadius: 10, textAlign: 'center' }}><span style={{ fontSize: 18, fontWeight: 700 }}>{totalXP}</span><p style={{ fontSize: 10, opacity: 0.8, margin: '4px 0 0' }}>XP Total</p></div>
-          </div>
-        </div>
-        {!showRelapseForm ? (<button onClick={() => setShowRelapseForm(true)} style={{ width: '100%', background: C.white, border: '1px solid ' + C.warning, color: C.warning, padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 10 }}>Registrar Recaída</button>) : (<form onSubmit={addRelapse} style={{ background: C.white, borderRadius: 12, padding: 16, marginBottom: 10 }}><h3 style={{ color: C.trueBlue, marginBottom: 10, fontSize: 14, fontWeight: 600 }}>Registrar Recaída</h3><input type="number" placeholder="Valor gasto (R$)" value={amt} onChange={e => setAmt(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 13, boxSizing: 'border-box' }} /><textarea placeholder="O que aconteceu?" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 10, fontSize: 13, minHeight: 50, resize: 'none', boxSizing: 'border-box' }} /><div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={() => setShowRelapseForm(false)} style={{ flex: 1, background: C.blancDeBlanc, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer' }}>Cancelar</button><button type="submit" disabled={saving} style={{ flex: 1, background: C.warning, border: 'none', color: C.white, padding: 10, borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>{saving ? '...' : 'Registrar'}</button></div></form>)}
-        {!showDebtForm ? (<button onClick={() => setShowDebtForm(true)} style={{ width: '100%', background: C.white, border: '1px solid ' + C.success, color: C.success, padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 10 }}>💰 Quitou uma dívida?</button>) : (<form onSubmit={addDebt} style={{ background: C.white, borderRadius: 12, padding: 16, marginBottom: 10 }}><h3 style={{ color: C.trueBlue, marginBottom: 10, fontSize: 14, fontWeight: 600 }}>Dívida Quitada</h3><input type="number" placeholder="Valor (R$)" value={amt} onChange={e => setAmt(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 13, boxSizing: 'border-box' }} /><textarea placeholder="Qual dívida?" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 10, fontSize: 13, minHeight: 50, resize: 'none', boxSizing: 'border-box' }} /><div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={() => setShowDebtForm(false)} style={{ flex: 1, background: C.blancDeBlanc, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer' }}>Cancelar</button><button type="submit" disabled={saving} style={{ flex: 1, background: C.success, border: 'none', color: C.white, padding: 10, borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>{saving ? '...' : 'Registrar'}</button></div></form>)}
-        {!showPurchaseForm ? (<button onClick={() => setShowPurchaseForm(true)} style={{ width: '100%', background: C.white, border: '1px solid ' + C.alaskanBlue, color: C.alaskanBlue, padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 10 }}>🏆 Conquista pessoal</button>) : (<form onSubmit={addPurchase} style={{ background: C.white, borderRadius: 12, padding: 16, marginBottom: 10 }}><h3 style={{ color: C.trueBlue, marginBottom: 10, fontSize: 14, fontWeight: 600 }}>Conquista</h3><input type="number" placeholder="Valor (R$) - opcional" value={amt} onChange={e => setAmt(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 13, boxSizing: 'border-box' }} /><textarea placeholder="O que conquistou?" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 10, fontSize: 13, minHeight: 50, resize: 'none', boxSizing: 'border-box' }} /><div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={() => setShowPurchaseForm(false)} style={{ flex: 1, background: C.blancDeBlanc, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer' }}>Cancelar</button><button type="submit" disabled={saving} style={{ flex: 1, background: C.alaskanBlue, border: 'none', color: C.white, padding: 10, borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>{saving ? '...' : 'Registrar'}</button></div></form>)}
-        <div style={{ background: C.white, borderRadius: 14, padding: 16, marginTop: 6 }}>
-          <h3 style={{ color: C.trueBlue, fontSize: 14, margin: '0 0 12px', fontWeight: 600 }}>Conquistas</h3>
-          {CONQUISTAS.map(c => { const achieved = days >= c.dias; return (<div key={c.dias} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid ' + C.blancDeBlanc }}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ width: 22, height: 22, borderRadius: '50%', background: achieved ? C.success : C.blancDeBlanc, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.white, fontSize: 11 }}>{achieved ? '✓' : ''}</span><span style={{ color: achieved ? C.trueBlue : C.blackRobe, opacity: achieved ? 1 : 0.5, fontWeight: achieved ? 600 : 400, fontSize: 13 }}>{c.nome}</span></div><span style={{ color: achieved ? C.success : C.blackRobe, opacity: achieved ? 1 : 0.5, fontSize: 12 }}>+{c.xp} XP</span></div>) })}
-        </div>
-      </div>
-    )
-  }
-
-  const Goals = () => (<div style={{ padding: 20, paddingBottom: 100 }}><button onClick={() => setPage('home')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button><GoalsTracker userId={user.id} savings={savings} goals={goals} onUpdate={loadData} /></div>)
-  const Autoexclusao = () => (<div style={{ padding: 20, paddingBottom: 100 }}><button onClick={() => setPage('home')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button><AutoexclusaoCentral /></div>)
-  const APAJ = () => (<div style={{ padding: 20, paddingBottom: 100 }}><VideoFeed suggestedVideo={riskAlert?.video} /><div style={{ marginTop: 20 }}><DoacaoAPAJ savings={savings.total} milestone={days >= 30} /></div></div>)
-  const Profile = () => (<div style={{ padding: 20, paddingBottom: 100 }}><h1 style={{ color: C.trueBlue, fontSize: 20, marginBottom: 16, fontWeight: 600 }}>Perfil</h1><div style={{ background: C.white, borderRadius: 14, padding: 18, marginBottom: 16 }}><div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}><div style={{ width: 56, height: 56, background: C.trueBlue, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: C.white, fontWeight: 600 }}>{profile?.name ? profile.name.charAt(0).toUpperCase() : '?'}</div><div><h2 style={{ color: C.trueBlue, fontSize: 16, margin: '0 0 4px', fontWeight: 600 }}>{profile?.name || 'Usuário'}</h2><p style={{ color: C.blackRobe, fontSize: 12, margin: 0, opacity: 0.6 }}>{user.email}</p></div></div><div style={{ background: C.iceMelt, borderRadius: 10, padding: 12, marginBottom: 12 }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ color: C.trueBlue, fontWeight: 600, fontSize: 13 }}>Level {currentLevel.level} - {currentLevel.nome}</span><span style={{ color: C.alaskanBlue, fontWeight: 700 }}>{totalXP} XP</span></div></div>{profile?.emergency_contact?.phone && <div style={{ background: '#e8f5e9', borderRadius: 10, padding: 12, marginBottom: 12 }}><p style={{ color: C.success, fontSize: 12, margin: 0 }}>📱 Contato SOS: {profile.emergency_contact.name || profile.emergency_contact.phone}</p></div>}<button onClick={() => setPage('setup')} style={{ width: '100%', padding: 11, background: C.iceMelt, border: 'none', borderRadius: 10, cursor: 'pointer', marginBottom: 8, color: C.trueBlue, fontWeight: 500, fontSize: 13 }}>Editar Configurações</button><button onClick={handleLogout} style={{ width: '100%', padding: 11, background: '#ffebee', border: 'none', borderRadius: 10, color: C.danger, cursor: 'pointer', fontWeight: 500, fontSize: 13 }}>Sair da Conta</button></div></div>)
-
-  const renderPage = () => { switch (page) { case 'home': return <Home />; case 'setup': return <Setup />; case 'diary': return <Diary />; case 'progress': return <Progress />; case 'goals': return <Goals />; case 'autoexclusao': return <Autoexclusao />; case 'apaj': return <APAJ />; case 'profile': return <Profile />; default: return <Home /> } }
-
-  if (loading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.iceMelt }}><p style={{ color: C.trueBlue }}>Carregando...</p></div>
-
-  return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', background: C.iceMelt, minHeight: '100vh', maxWidth: 480, margin: '0 auto', position: 'relative' }}>
-      {renderPage()}
-      <SOSButton />
-      <NavBar />
-      {showSOS && <SOSFissura profile={profile} onClose={() => setShowSOS(false)} />}
-    </div>
-  )
-}
-    )
-    return (
-      <div style={{ padding: 20, paddingBottom: 100 }}>
-        <h1 style={{ color: C.trueBlue, fontSize: 18, marginBottom: 14, fontWeight: 600 }}>Diário</h1>
-        <button onClick={() => setShowForm(true)} style={{ width: '100%', background: C.trueBlue, color: C.white, border: 'none', padding: 12, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 14 }}>+ Nova Entrada</button>
-        {diaryEntries.length === 0 ? <div style={{ background: C.white, borderRadius: 12, padding: 28, textAlign: 'center' }}><p style={{ color: C.blackRobe, opacity: 0.6, margin: 0 }}>Nenhuma entrada</p></div> : diaryEntries.map(d => (
-          <div key={d.id} style={{ background: C.white, borderRadius: 12, padding: 14, marginBottom: 10 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}><span style={{ color: C.trueBlue, fontSize: 11, fontWeight: 600 }}>{new Date(d.created_at).toLocaleDateString('pt-BR')}</span>{d.mood && <span style={{ background: MOOD_CONFIG[d.mood]?.bg || C.iceMelt, color: MOOD_CONFIG[d.mood]?.color || C.trueBlue, padding: '2px 8px', borderRadius: 8, fontSize: 10 }}>{MOOD_CONFIG[d.mood]?.icon} {d.mood}</span>}</div>
-            {d.emotions?.length > 0 && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>{d.emotions.map(e => <span key={e} style={{ background: e === 'Fissura' ? '#ffebee' : C.blancDeBlanc, color: e === 'Fissura' ? C.danger : C.blackRobe, padding: '2px 6px', borderRadius: 6, fontSize: 9 }}>{e}</span>)}</div>}
-            {d.content && <p style={{ color: C.blackRobe, fontSize: 12, lineHeight: 1.4, margin: 0 }}>{d.content}</p>}
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  const Progress = () => {
-    const [showEpisode, setShowEpisode] = useState(false)
-    const [showDebtForm, setShowDebtForm] = useState(false)
-    const [showPurchaseForm, setShowPurchaseForm] = useState(false)
-    const [amt, setAmt] = useState('')
-    const [note, setNote] = useState('')
-    const [saving, setSaving] = useState(false)
-    const addDebt = async (e) => { e.preventDefault(); if (!note.trim()) return; setSaving(true); try { await supabase.from('patient_debts').insert({ patient_id: user.id, amount: parseFloat(amt) || 0, description: note }); await publishVictory('debt', 'Alguém quitou R$ ' + (parseFloat(amt) || 0).toLocaleString('pt-BR') + ' em dívidas!'); await loadData(); setShowDebtForm(false); setAmt(''); setNote('') } catch (e) { alert('Erro: ' + e.message) } finally { setSaving(false) } }
-    const addPurchase = async (e) => { e.preventDefault(); if (!note.trim()) return; setSaving(true); try { await supabase.from('patient_purchases').insert({ patient_id: user.id, amount: parseFloat(amt) || 0, description: note }); await publishVictory('achievement', 'Alguém registrou uma conquista!'); await loadData(); setShowPurchaseForm(false); setAmt(''); setNote('') } catch (e) { alert('Erro: ' + e.message) } finally { setSaving(false) } }
-    if (showEpisode) return <EpisodeProcessor userId={user.id} onComplete={() => { setShowEpisode(false); loadData() }} onCancel={() => setShowEpisode(false)} />
-    if (!profile?.sober_start_date) return (<div style={{ padding: 20, paddingBottom: 100, textAlign: 'center' }}><h2 style={{ color: C.trueBlue, marginTop: 40 }}>Configure seu perfil</h2><button onClick={() => setPage('setup')} style={{ marginTop: 20, background: C.trueBlue, color: C.white, border: 'none', padding: '12px 24px', borderRadius: 10, cursor: 'pointer' }}>Configurar</button></div>)
-    return (
-      <div style={{ padding: 20, paddingBottom: 100 }}>
-        <div style={{ background: C.trueBlue, borderRadius: 16, padding: 20, marginBottom: 14, color: C.white }}>
-          <div style={{ textAlign: 'center', marginBottom: 12 }}><p style={{ fontSize: 11, opacity: 0.8, margin: '0 0 4px' }}>Dias de progresso</p><span style={{ fontSize: 48, fontWeight: 700 }}>{days}</span><p style={{ fontSize: 12, margin: '6px 0 0' }}>Level {currentLevel.level} - {currentLevel.nome}</p></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}><div style={{ background: 'rgba(255,255,255,0.12)', padding: 12, borderRadius: 10, textAlign: 'center' }}><span style={{ fontSize: 16, fontWeight: 700 }}>R$ {Math.floor(savings.total).toLocaleString('pt-BR')}</span><p style={{ fontSize: 10, opacity: 0.8, margin: '2px 0 0' }}>Economizado</p></div><div style={{ background: 'rgba(255,255,255,0.12)', padding: 12, borderRadius: 10, textAlign: 'center' }}><span style={{ fontSize: 16, fontWeight: 700 }}>{totalXP}</span><p style={{ fontSize: 10, opacity: 0.8, margin: '2px 0 0' }}>XP Total</p></div></div>
-        </div>
-        <button onClick={() => setShowEpisode(true)} style={{ width: '100%', background: C.white, border: '1px solid ' + C.warning, color: C.warning, padding: 11, borderRadius: 10, fontSize: 12, fontWeight: 500, cursor: 'pointer', marginBottom: 8 }}>Preciso processar algo</button>
-        {!showDebtForm ? <button onClick={() => setShowDebtForm(true)} style={{ width: '100%', background: C.white, border: '1px solid ' + C.success, color: C.success, padding: 11, borderRadius: 10, fontSize: 12, fontWeight: 500, cursor: 'pointer', marginBottom: 8 }}>💰 Quitei uma dívida</button> : <form onSubmit={addDebt} style={{ background: C.white, borderRadius: 10, padding: 14, marginBottom: 8 }}><input type="number" placeholder="Valor (R$)" value={amt} onChange={e => setAmt(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 12, boxSizing: 'border-box' }} /><input type="text" placeholder="Qual dívida?" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 10, fontSize: 12, boxSizing: 'border-box' }} /><div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={() => setShowDebtForm(false)} style={{ flex: 1, background: C.blancDeBlanc, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer', fontSize: 12 }}>Cancelar</button><button type="submit" disabled={saving} style={{ flex: 1, background: C.success, color: C.white, border: 'none', padding: 10, borderRadius: 8, fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>{saving ? '...' : 'Salvar'}</button></div></form>}
-        {!showPurchaseForm ? <button onClick={() => setShowPurchaseForm(true)} style={{ width: '100%', background: C.white, border: '1px solid ' + C.alaskanBlue, color: C.alaskanBlue, padding: 11, borderRadius: 10, fontSize: 12, fontWeight: 500, cursor: 'pointer', marginBottom: 8 }}>🏆 Conquista pessoal</button> : <form onSubmit={addPurchase} style={{ background: C.white, borderRadius: 10, padding: 14, marginBottom: 8 }}><input type="number" placeholder="Valor (opcional)" value={amt} onChange={e => setAmt(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 12, boxSizing: 'border-box' }} /><input type="text" placeholder="O que conquistou?" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 10, fontSize: 12, boxSizing: 'border-box' }} /><div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={() => setShowPurchaseForm(false)} style={{ flex: 1, background: C.blancDeBlanc, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer', fontSize: 12 }}>Cancelar</button><button type="submit" disabled={saving} style={{ flex: 1, background: C.alaskanBlue, color: C.white, border: 'none', padding: 10, borderRadius: 8, fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>{saving ? '...' : 'Salvar'}</button></div></form>}
-        <div style={{ background: C.white, borderRadius: 12, padding: 14, marginTop: 6 }}><h3 style={{ color: C.trueBlue, fontSize: 13, margin: '0 0 10px', fontWeight: 600 }}>Conquistas</h3>{CONQUISTAS.map(c => { const ok = days >= c.dias; return (<div key={c.dias} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid ' + C.blancDeBlanc }}><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 20, height: 20, borderRadius: '50%', background: ok ? C.success : C.blancDeBlanc, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.white, fontSize: 10 }}>{ok ? '✓' : ''}</span><span style={{ color: ok ? C.trueBlue : C.blackRobe, opacity: ok ? 1 : 0.5, fontSize: 12 }}>{c.nome}</span></div><span style={{ color: ok ? C.success : C.blackRobe, opacity: ok ? 1 : 0.5, fontSize: 11 }}>+{c.xp}</span></div>) })}</div>
-      </div>
-    )
-  }
-
-  const Tools = () => (
-    <div style={{ padding: 20, paddingBottom: 100 }}>
-      <h1 style={{ color: C.trueBlue, fontSize: 18, marginBottom: 14, fontWeight: 600 }}>Ferramentas</h1>
-      <div style={{ display: 'grid', gap: 10 }}>
-        {[{ id: 'videos', icon: '📚', label: 'Vídeos APAJ', desc: 'Pílulas de conhecimento' }, { id: 'autoexclusao', icon: '🛡️', label: 'Autoexclusão', desc: 'Bloqueie seu acesso' }, { id: 'goals', icon: '🎯', label: 'Objetivos de Vida', desc: 'Custo de oportunidade' }, { id: 'vault', icon: '📦', label: 'Cofre de Evidências', desc: 'Para momentos difíceis' }, { id: 'contract', icon: '📋', label: 'Contrato Comportamental', desc: 'Seus compromissos' }, { id: 'crisis', icon: '🚨', label: 'Plano de Crise', desc: 'Passos de emergência' }, { id: 'donate', icon: '💙', label: 'Apoiar APAJ', desc: 'Doação via PIX' }].map(t => (
-          <button key={t.id} onClick={() => setPage(t.id)} style={{ background: C.white, border: 'none', borderRadius: 12, padding: 14, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ fontSize: 24 }}>{t.icon}</span><div><h3 style={{ color: C.trueBlue, fontSize: 13, margin: 0, fontWeight: 600 }}>{t.label}</h3><p style={{ color: C.blackRobe, fontSize: 11, margin: '2px 0 0', opacity: 0.6 }}>{t.desc}</p></div></button>
-        ))}
-      </div>
-    </div>
-  )
-
-  const Profile = () => (
-    <div style={{ padding: 20, paddingBottom: 100 }}>
-      <h1 style={{ color: C.trueBlue, fontSize: 18, marginBottom: 14, fontWeight: 600 }}>Perfil</h1>
-      <div style={{ background: C.white, borderRadius: 12, padding: 16, marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}><div style={{ width: 50, height: 50, background: C.trueBlue, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: C.white, fontWeight: 600 }}>{profile?.name?.charAt(0) || '?'}</div><div><h2 style={{ color: C.trueBlue, fontSize: 15, margin: 0 }}>{profile?.name || 'Usuário'}</h2><p style={{ color: C.blackRobe, fontSize: 11, margin: '2px 0 0', opacity: 0.6 }}>{user.email}</p></div></div>
-        <div style={{ background: C.iceMelt, borderRadius: 8, padding: 10, marginBottom: 10 }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: C.trueBlue, fontSize: 12, fontWeight: 600 }}>Level {currentLevel.level} - {currentLevel.nome}</span><span style={{ color: C.alaskanBlue, fontWeight: 700, fontSize: 13 }}>{totalXP} XP</span></div></div>
-        {profile?.emergency_contact?.phone && <div style={{ background: '#e8f5e9', borderRadius: 8, padding: 10, marginBottom: 10 }}><p style={{ color: C.success, fontSize: 11, margin: 0 }}>📱 SOS: {profile.emergency_contact.name || profile.emergency_contact.phone}</p></div>}
-        {profile?.night_mode_settings?.enabled && <div style={{ background: '#e3f2fd', borderRadius: 8, padding: 10, marginBottom: 10 }}><p style={{ color: C.trueBlue, fontSize: 11, margin: 0 }}>🌙 Modo noturno: {profile.night_mode_settings.start_hour}h - {profile.night_mode_settings.end_hour}h</p></div>}
-        <button onClick={() => setPage('setup')} style={{ width: '100%', padding: 10, background: C.iceMelt, border: 'none', borderRadius: 8, cursor: 'pointer', color: C.trueBlue, fontWeight: 500, fontSize: 12, marginBottom: 8 }}>Editar Configurações</button>
-        <button onClick={handleLogout} style={{ width: '100%', padding: 10, background: '#ffebee', border: 'none', borderRadius: 8, color: C.danger, cursor: 'pointer', fontWeight: 500, fontSize: 12 }}>Sair</button>
-      </div>
-    </div>
-  )
-
-  const renderPage = () => {
-    switch (page) {
-      case 'home': return <Home />
-      case 'setup': return <Setup />
-      case 'diary': return <Diary />
-      case 'progress': return <Progress />
-      case 'tools': return <Tools />
-      case 'profile': return <Profile />
-      case 'goals': return <div style={{ padding: 20, paddingBottom: 100 }}><button onClick={() => setPage('home')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button><GoalsTracker userId={user.id} savings={savings} goals={goals} onUpdate={loadData} /></div>
-      case 'vault': return <VaultManager userId={user.id} vault={vault} onUpdate={loadData} onClose={() => setPage('home')} />
-      case 'contract': return <BehavioralContract userId={user.id} contract={contract} onUpdate={loadData} onClose={() => setPage('home')} />
-      case 'crisis': return <CrisisPlan userId={user.id} plan={crisisPlan} onUpdate={loadData} onClose={() => setPage('home')} viewOnly={false} />
-      case 'autoexclusao': return <div style={{ padding: 20, paddingBottom: 100 }}><button onClick={() => setPage('tools')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button><AutoexclusaoCentral /></div>
-      case 'videos': return <div style={{ padding: 20, paddingBottom: 100 }}><button onClick={() => setPage('tools')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button><VideoFeed suggestedVideo={riskAlert?.video} /></div>
-      case 'donate': return <div style={{ padding: 20, paddingBottom: 100 }}><button onClick={() => setPage('tools')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button><DoacaoAPAJ savings={savings.total} milestone={days >= 30} /></div>
-      case 'mentor': return <MentorSystem userId={user.id} days={days} profile={profile} onClose={() => setPage('home')} />
-      case 'victories': return <VictoryWall onClose={() => setPage('home')} />
-      default: return <Home />
-    }
-  }
-
-  if (loading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.iceMelt }}><p style={{ color: C.trueBlue }}>Carregando...</p></div>
-
-  return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', background: C.iceMelt, minHeight: '100vh', maxWidth: 480, margin: '0 auto', position: 'relative' }}>
-      <NightMode profile={profile} isActive={nightActive} onOpenSOS={() => setShowSOS(true)} />
-      {renderPage()}
-      <SOSButton />
-      <NavBar />
-      {showSOS && <SOSFissura profile={profile} userId={user.id} vault={vault} onClose={() => setShowSOS(false)} />}
-    </div>
-  )
-}
-    )
-    return (
-      <div style={{ padding: 20, paddingBottom: 100 }}>
-        <h1 style={{ color: C.trueBlue, fontSize: 18, marginBottom: 14, fontWeight: 600 }}>Diário</h1>
-        <button onClick={() => setShowForm(true)} style={{ width: '100%', background: C.trueBlue, color: C.white, border: 'none', padding: 12, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 14 }}>+ Nova Entrada</button>
-        {diaryEntries.length === 0 ? <div style={{ background: C.white, borderRadius: 12, padding: 28, textAlign: 'center' }}><p style={{ color: C.blackRobe, opacity: 0.6, margin: 0 }}>Nenhuma entrada</p></div> : diaryEntries.slice(0, 10).map(d => (
-          <div key={d.id} style={{ background: C.white, borderRadius: 12, padding: 14, marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}><span style={{ color: C.trueBlue, fontSize: 11, fontWeight: 600 }}>{new Date(d.created_at).toLocaleDateString('pt-BR')}</span>{d.mood && <span style={{ background: MOOD_CONFIG[d.mood]?.bg || C.iceMelt, color: MOOD_CONFIG[d.mood]?.color || C.trueBlue, padding: '2px 8px', borderRadius: 8, fontSize: 10 }}>{MOOD_CONFIG[d.mood]?.icon} {d.mood}</span>}</div>
-            {d.emotions?.length > 0 && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>{d.emotions.map(e => <span key={e} style={{ background: e === 'Fissura' ? '#ffebee' : C.blancDeBlanc, color: e === 'Fissura' ? C.danger : C.blackRobe, padding: '2px 6px', borderRadius: 6, fontSize: 9 }}>{e}</span>)}</div>}
+            {d.emotions?.length > 0 && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>{d.emotions.map(em => <span key={em} style={{ background: em === 'Fissura' ? '#ffebee' : C.blancDeBlanc, color: em === 'Fissura' ? C.danger : C.blackRobe, padding: '2px 6px', borderRadius: 6, fontSize: 9 }}>{em}</span>)}</div>}
             {d.content && <p style={{ color: C.blackRobe, fontSize: 12, lineHeight: 1.4, margin: 0 }}>{d.content.slice(0, 150)}{d.content.length > 150 ? '...' : ''}</p>}
           </div>
         ))}
@@ -425,129 +308,95 @@ export default function PatientApp({ user, onLogout }) {
     const [amt, setAmt] = useState('')
     const [note, setNote] = useState('')
     const [saving, setSaving] = useState(false)
-    const addDebt = async (e) => { e.preventDefault(); if (!note.trim()) return; setSaving(true); try { await supabase.from('patient_debts').insert({ patient_id: user.id, amount: parseFloat(amt) || 0, description: note }); await publishVictory('debt', `Alguém quitou uma dívida de R$ ${parseFloat(amt) || 0}`); await loadData(); setShowDebt(false); setAmt(''); setNote('') } catch (e) { alert('Erro: ' + e.message) } finally { setSaving(false) } }
-    const addPurchase = async (e) => { e.preventDefault(); if (!note.trim()) return; setSaving(true); try { await supabase.from('patient_purchases').insert({ patient_id: user.id, amount: parseFloat(amt) || 0, description: note }); await loadData(); setShowPurchase(false); setAmt(''); setNote('') } catch (e) { alert('Erro: ' + e.message) } finally { setSaving(false) } }
-    if (showEpisode) return <EpisodeProcessor userId={user.id} onComplete={() => { loadData(); setShowEpisode(false) }} onCancel={() => setShowEpisode(false)} />
-    if (!profile?.sober_start_date) return <div style={{ padding: 20, paddingBottom: 100, textAlign: 'center' }}><h2 style={{ color: C.trueBlue, marginTop: 40 }}>Configure seu perfil</h2><button onClick={() => setPage('setup')} style={{ marginTop: 16, background: C.trueBlue, color: C.white, border: 'none', padding: '12px 24px', borderRadius: 10, cursor: 'pointer' }}>Configurar</button></div>
-    return (
-      <div style={{ padding: 20, paddingBottom: 100 }}>
-        <div style={{ background: C.trueBlue, borderRadius: 16, padding: 20, marginBottom: 14, color: C.white }}>
-          <div style={{ textAlign: 'center', marginBottom: 12 }}><p style={{ fontSize: 11, opacity: 0.8, margin: '0 0 2px' }}>Dias de progresso</p><span style={{ fontSize: 52, fontWeight: 700 }}>{days}</span>{episodes.length > 0 && <p style={{ fontSize: 11, opacity: 0.7, margin: '6px 0 0' }}>{episodes.length} episódio(s) processado(s)</p>}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}><div style={{ background: 'rgba(255,255,255,0.12)', padding: 10, borderRadius: 8, textAlign: 'center' }}><span style={{ fontSize: 16, fontWeight: 700 }}>R$ {Math.floor(savings.total).toLocaleString('pt-BR')}</span><p style={{ fontSize: 9, opacity: 0.8, margin: '2px 0 0' }}>Economizado</p></div><div style={{ background: 'rgba(255,255,255,0.12)', padding: 10, borderRadius: 8, textAlign: 'center' }}><span style={{ fontSize: 16, fontWeight: 700 }}>{totalXP}</span><p style={{ fontSize: 9, opacity: 0.8, margin: '2px 0 0' }}>XP Total</p></div></div>
-        </div>
-        <button onClick={() => setShowEpisode(true)} style={{ width: '100%', background: C.white, border: '1px solid ' + C.warning, color: C.warning, padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 8 }}>Preciso processar um episódio</button>
-        {!showDebt ? <button onClick={() => setShowDebt(true)} style={{ width: '100%', background: C.white, border: '1px solid ' + C.success, color: C.success, padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 8 }}>💰 Quitei uma dívida</button> : (
-          <form onSubmit={addDebt} style={{ background: C.white, borderRadius: 10, padding: 14, marginBottom: 8 }}><input type="number" placeholder="Valor (R$)" value={amt} onChange={e => setAmt(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 13, boxSizing: 'border-box' }} /><input type="text" placeholder="Qual dívida?" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 13, boxSizing: 'border-box' }} /><div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={() => setShowDebt(false)} style={{ flex: 1, background: C.blancDeBlanc, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer' }}>Cancelar</button><button type="submit" disabled={saving} style={{ flex: 1, background: C.success, color: C.white, border: 'none', padding: 10, borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}>{saving ? '...' : 'Salvar'}</button></div></form>
-        )}
-        {!showPurchase ? <button onClick={() => setShowPurchase(true)} style={{ width: '100%', background: C.white, border: '1px solid ' + C.alaskanBlue, color: C.alaskanBlue, padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 8 }}>🏆 Conquista pessoal</button> : (
-          <form onSubmit={addPurchase} style={{ background: C.white, borderRadius: 10, padding: 14, marginBottom: 8 }}><input type="number" placeholder="Valor (R$) - opcional" value={amt} onChange={e => setAmt(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 13, boxSizing: 'border-box' }} /><input type="text" placeholder="O que conquistou?" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 13, boxSizing: 'border-box' }} /><div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={() => setShowPurchase(false)} style={{ flex: 1, background: C.blancDeBlanc, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer' }}>Cancelar</button><button type="submit" disabled={saving} style={{ flex: 1, background: C.alaskanBlue, color: C.white, border: 'none', padding: 10, borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}>{saving ? '...' : 'Salvar'}</button></div></form>
-        )}
-        <div style={{ background: C.white, borderRadius: 12, padding: 14, marginTop: 6 }}><h3 style={{ color: C.trueBlue, fontSize: 13, margin: '0 0 10px', fontWeight: 600 }}>Conquistas</h3>{CONQUISTAS.map(c => { const achieved = days >= c.dias; return (<div key={c.dias} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid ' + C.blancDeBlanc }}><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 20, height: 20, borderRadius: '50%', background: achieved ? C.success : C.blancDeBlanc, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.white, fontSize: 10 }}>{achieved ? '✓' : ''}</span><span style={{ color: achieved ? C.trueBlue : C.blackRobe, opacity: achieved ? 1 : 0.5, fontSize: 12 }}>{c.nome}</span></div><span style={{ color: achieved ? C.success : C.blackRobe, opacity: achieved ? 1 : 0.5, fontSize: 11 }}>+{c.xp}</span></div>) })}</div>
-      </div>
-    )
-  }
-
-  const Tools = () => (
-    <div style={{ padding: 20, paddingBottom: 100 }}>
-      <h1 style={{ color: C.trueBlue, fontSize: 18, marginBottom: 14, fontWeight: 600 }}>Ferramentas</h1>
-      <div style={{ display: 'grid', gap: 10 }}>
-        {[{ id: 'videos', icon: '📚', label: 'Pílulas de Conhecimento', desc: 'Vídeos dos especialistas APAJ' }, { id: 'autoexclusao', icon: '🛡️', label: 'Central de Autoexclusão', desc: 'Bloqueie acesso às plataformas' }, { id: 'goals', icon: '🎯', label: 'Objetivos de Vida', desc: 'Transforme economia em metas' }, { id: 'vault', icon: '📦', label: 'Cofre de Evidências', desc: 'Lembretes para momentos difíceis' }, { id: 'contract', icon: '📋', label: 'Contrato Comportamental', desc: 'Seus compromissos' }, { id: 'crisis', icon: '🚨', label: 'Plano de Crise', desc: 'Passos de emergência' }, { id: 'donate', icon: '💙', label: 'Apoiar a APAJ', desc: 'Contribua com a causa' }].map(t => (
-          <button key={t.id} onClick={() => setPage(t.id)} style={{ background: C.white, border: 'none', borderRadius: 12, padding: 14, cursor: 'pointer', textAlign: 'left', display: 'flex', gap: 12, alignItems: 'center' }}><span style={{ fontSize: 28 }}>{t.icon}</span><div><h3 style={{ color: C.trueBlue, fontSize: 13, margin: '0 0 2px', fontWeight: 600 }}>{t.label}</h3><p style={{ color: C.blackRobe, fontSize: 11, margin: 0, opacity: 0.6 }}>{t.desc}</p></div></button>
-        ))}
-      </div>
-    </div>
-  )
-
-  const Profile = () => (
-    <div style={{ padding: 20, paddingBottom: 100 }}>
-      <h1 style={{ color: C.trueBlue, fontSize: 18, marginBottom: 14, fontWeight: 600 }}>Perfil</h1>
-      <div style={{ background: C.white, borderRadius: 12, padding: 16, marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}><div style={{ width: 50, height: 50, background: C.trueBlue, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: C.white, fontWeight: 600 }}>{profile?.name?.charAt(0) || '?'}</div><div><h2 style={{ color: C.trueBlue, fontSize: 15, margin: '0 0 2px', fontWeight: 600 }}>{profile?.name || 'Usuário'}</h2><p style={{ color: C.blackRobe, fontSize: 11, margin: 0, opacity: 0.6 }}>{user.email}</p></div></div>
-        <div style={{ background: C.iceMelt, borderRadius: 8, padding: 10, marginBottom: 12 }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: C.trueBlue, fontWeight: 600, fontSize: 12 }}>Level {currentLevel.level} - {currentLevel.nome}</span><span style={{ color: C.alaskanBlue, fontWeight: 700, fontSize: 13 }}>{totalXP} XP</span></div></div>
-        {profile?.emergency_contact?.phone && <div style={{ background: '#e8f5e9', borderRadius: 8, padding: 10, marginBottom: 12 }}><p style={{ color: C.success, fontSize: 11, margin: 0 }}>📱 SOS: {profile.emergency_contact.name || profile.emergency_contact.phone}</p></div>}
-        {profile?.night_mode_settings?.enabled && <div style={{ background: '#e3f2fd', borderRadius: 8, padding: 10, marginBottom: 12 }}><p style={{ color: C.trueBlue, fontSize: 11, margin: 0 }}>🌙 Modo Noturno: {profile.night_mode_settings.start_hour}h às {profile.night_mode_settings.end_hour}h</p></div>}
-        <button onClick={() => setPage('setup')} style={{ width: '100%', padding: 10, background: C.iceMelt, border: 'none', borderRadius: 8, cursor: 'pointer', marginBottom: 8, color: C.trueBlue, fontWeight: 500, fontSize: 12 }}>Editar Configurações</button>
-        <button onClick={handleLogout} style={{ width: '100%', padding: 10, background: '#ffebee', border: 'none', borderRadius: 8, color: C.danger, cursor: 'pointer', fontWeight: 500, fontSize: 12 }}>Sair</button>
-      </div>
-    </div>
-  )
-
-  const renderPage = () => {
-    switch (page) {
-      case 'home': return <Home />
-      case 'setup': return <Setup />
-      case 'diary': return <Diary />
-      case 'progress': return <Progress />
-      case 'tools': return <Tools />
-      case 'profile': return <Profile />
-      case 'goals': return <div style={{ padding: 20, paddingBottom: 100 }}><button onClick={() => setPage('home')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button><GoalsTracker userId={user.id} savings={savings} goals={goals} onUpdate={loadData} /></div>
-      case 'vault': return <VaultManager userId={user.id} vault={vault} onUpdate={loadData} onClose={() => setPage('home')} />
-      case 'contract': return <BehavioralContract userId={user.id} contract={contract} onUpdate={loadData} onClose={() => setPage('home')} />
-      case 'crisis': return <CrisisPlan userId={user.id} plan={crisisPlan} onUpdate={loadData} onClose={() => setPage('home')} viewOnly={false} />
-      case 'autoexclusao': return <div style={{ padding: 20, paddingBottom: 100 }}><button onClick={() => setPage('tools')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button><AutoexclusaoCentral /></div>
-      case 'videos': return <div style={{ padding: 20, paddingBottom: 100 }}><button onClick={() => setPage('tools')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button><VideoFeed suggestedVideo={riskAlert?.video} /></div>
-      case 'donate': return <div style={{ padding: 20, paddingBottom: 100 }}><button onClick={() => setPage('tools')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button><DoacaoAPAJ savings={savings.total} milestone={days >= 30} /></div>
-      case 'mentor': return <MentorSystem userId={user.id} days={days} profile={profile} onClose={() => setPage('home')} />
-      case 'victories': return <VictoryWall onClose={() => setPage('home')} />
-      default: return <Home />
+    const addDebt = async (e) => {
+      e.preventDefault()
+      if (!note.trim()) return
+      setSaving(true)
+      try {
+        await supabase.from('patient_debts').insert({ patient_id: user.id, amount: parseFloat(amt) || 0, description: note })
+        await publishVictory('debt', `Alguém quitou uma dívida de R$ ${(parseFloat(amt) || 0).toLocaleString('pt-BR')}`)
+        await loadData()
+        setShowDebt(false); setAmt(''); setNote('')
+      } catch (err) { alert('Erro: ' + err.message) }
+      finally { setSaving(false) }
     }
-  }
-
-  if (loading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.iceMelt }}><p style={{ color: C.trueBlue }}>Carregando...</p></div>
-
-  return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', background: C.iceMelt, minHeight: '100vh', maxWidth: 480, margin: '0 auto', position: 'relative' }}>
-      <NightMode profile={profile} isActive={nightActive} onOpenSOS={() => setShowSOS(true)} />
-      {renderPage()}
-      <SOSButton />
-      <NavBar />
-      {showSOS && <SOSFissura profile={profile} userId={user.id} vault={vault} onClose={() => setShowSOS(false)} />}
-    </div>
-  )
-}
-    )
-    return (
-      <div style={{ padding: 20, paddingBottom: 100 }}>
-        <h1 style={{ color: C.trueBlue, fontSize: 18, marginBottom: 14, fontWeight: 600 }}>Diário</h1>
-        <button onClick={() => setShowForm(true)} style={{ width: '100%', background: C.trueBlue, color: C.white, border: 'none', padding: 12, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 14 }}>+ Nova Entrada</button>
-        {diaryEntries.length === 0 ? <div style={{ background: C.white, borderRadius: 12, padding: 28, textAlign: 'center' }}><p style={{ color: C.blackRobe, opacity: 0.6 }}>Nenhuma entrada</p></div> : diaryEntries.slice(0, 15).map(d => (
-          <div key={d.id} style={{ background: C.white, borderRadius: 12, padding: 14, marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}><span style={{ color: C.trueBlue, fontSize: 11, fontWeight: 600 }}>{new Date(d.created_at).toLocaleDateString('pt-BR')}</span>{d.mood && <span style={{ background: MOOD_CONFIG[d.mood]?.bg, color: MOOD_CONFIG[d.mood]?.color, padding: '2px 8px', borderRadius: 8, fontSize: 10 }}>{MOOD_CONFIG[d.mood]?.icon} {d.mood}</span>}</div>
-            {d.emotions?.length > 0 && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>{d.emotions.map(e => <span key={e} style={{ background: e === 'Fissura' ? '#ffebee' : C.blancDeBlanc, color: e === 'Fissura' ? C.danger : C.blackRobe, padding: '2px 6px', borderRadius: 6, fontSize: 9 }}>{e}</span>)}</div>}
-            {d.content && <p style={{ color: C.blackRobe, fontSize: 12, lineHeight: 1.4, margin: 0 }}>{d.content.slice(0, 150)}{d.content.length > 150 ? '...' : ''}</p>}
-          </div>
-        ))}
+    const addPurchase = async (e) => {
+      e.preventDefault()
+      if (!note.trim()) return
+      setSaving(true)
+      try {
+        await supabase.from('patient_purchases').insert({ patient_id: user.id, amount: parseFloat(amt) || 0, description: note })
+        await publishVictory('achievement', 'Alguém registrou uma conquista!')
+        await loadData()
+        setShowPurchase(false); setAmt(''); setNote('')
+      } catch (err) { alert('Erro: ' + err.message) }
+      finally { setSaving(false) }
+    }
+    if (showEpisode) return <EpisodeProcessor userId={user.id} onComplete={() => { setShowEpisode(false); loadData() }} onCancel={() => setShowEpisode(false)} />
+    if (!profile?.sober_start_date) return (
+      <div style={{ padding: 20, paddingBottom: 100, textAlign: 'center' }}>
+        <h2 style={{ color: C.trueBlue, marginTop: 40 }}>Configure seu perfil</h2>
+        <button onClick={() => setPage('setup')} style={{ marginTop: 16, background: C.trueBlue, color: C.white, border: 'none', padding: '12px 24px', borderRadius: 10, cursor: 'pointer' }}>Configurar</button>
       </div>
     )
-  }
-
-  const Progress = () => {
-    const [showEpisode, setShowEpisode] = useState(false)
-    const [showDebt, setShowDebt] = useState(false)
-    const [showPurchase, setShowPurchase] = useState(false)
-    const [amt, setAmt] = useState('')
-    const [note, setNote] = useState('')
-    const [saving, setSaving] = useState(false)
-    const addDebt = async (e) => { e.preventDefault(); if (!note.trim()) return; setSaving(true); try { await supabase.from('patient_debts').insert({ patient_id: user.id, amount: parseFloat(amt) || 0, description: note }); await publishVictory('debt', `Alguém quitou uma dívida de R$ ${parseFloat(amt) || 0}`); await loadData(); setShowDebt(false); setAmt(''); setNote('') } catch (e) { alert('Erro') } finally { setSaving(false) } }
-    const addPurchase = async (e) => { e.preventDefault(); if (!note.trim()) return; setSaving(true); try { await supabase.from('patient_purchases').insert({ patient_id: user.id, amount: parseFloat(amt) || 0, description: note }); await publishVictory('achievement', `Alguém registrou uma conquista!`); await loadData(); setShowPurchase(false); setAmt(''); setNote('') } catch (e) { alert('Erro') } finally { setSaving(false) } }
-    if (showEpisode) return <EpisodeProcessor userId={user.id} onComplete={() => { setShowEpisode(false); loadData() }} onCancel={() => setShowEpisode(false)} />
-    if (!profile?.sober_start_date) return <div style={{ padding: 20, paddingBottom: 100, textAlign: 'center' }}><h2 style={{ color: C.trueBlue, marginTop: 40 }}>Configure seu perfil</h2><button onClick={() => setPage('setup')} style={{ marginTop: 16, background: C.trueBlue, color: C.white, border: 'none', padding: '12px 24px', borderRadius: 10, cursor: 'pointer' }}>Configurar</button></div>
     return (
       <div style={{ padding: 20, paddingBottom: 100 }}>
         <div style={{ background: C.trueBlue, borderRadius: 16, padding: 20, marginBottom: 14, color: C.white }}>
-          <div style={{ textAlign: 'center', marginBottom: 12 }}><span style={{ fontSize: 52, fontWeight: 700 }}>{days}</span><p style={{ fontSize: 12, margin: '4px 0 0' }}>dias de progresso</p>{episodes.length > 0 && <p style={{ fontSize: 11, opacity: 0.7, margin: '4px 0 0' }}>{episodes.length} episódio(s) processado(s)</p>}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}><div style={{ background: 'rgba(255,255,255,0.12)', padding: 10, borderRadius: 10, textAlign: 'center' }}><span style={{ fontSize: 16, fontWeight: 700 }}>R$ {Math.floor(savings.total).toLocaleString('pt-BR')}</span><p style={{ fontSize: 9, opacity: 0.8, margin: '2px 0 0' }}>Economizado</p></div><div style={{ background: 'rgba(255,255,255,0.12)', padding: 10, borderRadius: 10, textAlign: 'center' }}><span style={{ fontSize: 16, fontWeight: 700 }}>{totalXP}</span><p style={{ fontSize: 9, opacity: 0.8, margin: '2px 0 0' }}>XP Total</p></div></div>
+          <div style={{ textAlign: 'center', marginBottom: 12 }}>
+            <span style={{ fontSize: 52, fontWeight: 700 }}>{days}</span>
+            <p style={{ fontSize: 12, margin: '4px 0 0' }}>dias de progresso</p>
+            {episodes.length > 0 && <p style={{ fontSize: 11, opacity: 0.7, margin: '4px 0 0' }}>{episodes.length} episódio(s) processado(s)</p>}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div style={{ background: 'rgba(255,255,255,0.12)', padding: 10, borderRadius: 10, textAlign: 'center' }}>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>R$ {Math.floor(savings.total).toLocaleString('pt-BR')}</span>
+              <p style={{ fontSize: 9, opacity: 0.8, margin: '2px 0 0' }}>Economizado</p>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.12)', padding: 10, borderRadius: 10, textAlign: 'center' }}>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>{totalXP}</span>
+              <p style={{ fontSize: 9, opacity: 0.8, margin: '2px 0 0' }}>XP Total</p>
+            </div>
+          </div>
         </div>
         <button onClick={() => setShowEpisode(true)} style={{ width: '100%', background: C.white, border: '1px solid ' + C.warning, color: C.warning, padding: 11, borderRadius: 10, fontSize: 12, fontWeight: 500, cursor: 'pointer', marginBottom: 8 }}>Preciso Processar Algo</button>
-        {!showDebt ? <button onClick={() => setShowDebt(true)} style={{ width: '100%', background: C.white, border: '1px solid ' + C.success, color: C.success, padding: 11, borderRadius: 10, fontSize: 12, fontWeight: 500, cursor: 'pointer', marginBottom: 8 }}>💰 Quitou dívida?</button> : (
-          <form onSubmit={addDebt} style={{ background: C.white, borderRadius: 10, padding: 14, marginBottom: 8 }}><input type="number" placeholder="Valor (R$)" value={amt} onChange={e => setAmt(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 12, boxSizing: 'border-box' }} /><textarea placeholder="Qual dívida?" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 12, minHeight: 50, resize: 'none', boxSizing: 'border-box' }} /><div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={() => setShowDebt(false)} style={{ flex: 1, background: C.blancDeBlanc, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer' }}>Cancelar</button><button type="submit" disabled={saving} style={{ flex: 1, background: C.success, color: C.white, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>{saving ? '...' : 'Salvar'}</button></div></form>
+        {!showDebt ? (
+          <button onClick={() => setShowDebt(true)} style={{ width: '100%', background: C.white, border: '1px solid ' + C.success, color: C.success, padding: 11, borderRadius: 10, fontSize: 12, fontWeight: 500, cursor: 'pointer', marginBottom: 8 }}>💰 Quitou dívida?</button>
+        ) : (
+          <form onSubmit={addDebt} style={{ background: C.white, borderRadius: 10, padding: 14, marginBottom: 8 }}>
+            <input type="number" placeholder="Valor (R$)" value={amt} onChange={e => setAmt(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 12, boxSizing: 'border-box' }} />
+            <textarea placeholder="Qual dívida?" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 12, minHeight: 50, resize: 'none', boxSizing: 'border-box' }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={() => setShowDebt(false)} style={{ flex: 1, background: C.blancDeBlanc, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer' }}>Cancelar</button>
+              <button type="submit" disabled={saving} style={{ flex: 1, background: C.success, color: C.white, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>{saving ? '...' : 'Salvar'}</button>
+            </div>
+          </form>
         )}
-        {!showPurchase ? <button onClick={() => setShowPurchase(true)} style={{ width: '100%', background: C.white, border: '1px solid ' + C.alaskanBlue, color: C.alaskanBlue, padding: 11, borderRadius: 10, fontSize: 12, fontWeight: 500, cursor: 'pointer', marginBottom: 8 }}>🏆 Conquista pessoal</button> : (
-          <form onSubmit={addPurchase} style={{ background: C.white, borderRadius: 10, padding: 14, marginBottom: 8 }}><input type="number" placeholder="Valor (R$) - opcional" value={amt} onChange={e => setAmt(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 12, boxSizing: 'border-box' }} /><textarea placeholder="O que conquistou?" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 12, minHeight: 50, resize: 'none', boxSizing: 'border-box' }} /><div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={() => setShowPurchase(false)} style={{ flex: 1, background: C.blancDeBlanc, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer' }}>Cancelar</button><button type="submit" disabled={saving} style={{ flex: 1, background: C.alaskanBlue, color: C.white, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>{saving ? '...' : 'Salvar'}</button></div></form>
+        {!showPurchase ? (
+          <button onClick={() => setShowPurchase(true)} style={{ width: '100%', background: C.white, border: '1px solid ' + C.alaskanBlue, color: C.alaskanBlue, padding: 11, borderRadius: 10, fontSize: 12, fontWeight: 500, cursor: 'pointer', marginBottom: 8 }}>🏆 Conquista pessoal</button>
+        ) : (
+          <form onSubmit={addPurchase} style={{ background: C.white, borderRadius: 10, padding: 14, marginBottom: 8 }}>
+            <input type="number" placeholder="Valor (R$) - opcional" value={amt} onChange={e => setAmt(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 12, boxSizing: 'border-box' }} />
+            <textarea placeholder="O que conquistou?" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', padding: 10, border: '1px solid ' + C.blancDeBlanc, borderRadius: 8, marginBottom: 8, fontSize: 12, minHeight: 50, resize: 'none', boxSizing: 'border-box' }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={() => setShowPurchase(false)} style={{ flex: 1, background: C.blancDeBlanc, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer' }}>Cancelar</button>
+              <button type="submit" disabled={saving} style={{ flex: 1, background: C.alaskanBlue, color: C.white, border: 'none', padding: 10, borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>{saving ? '...' : 'Salvar'}</button>
+            </div>
+          </form>
         )}
         <div style={{ background: C.white, borderRadius: 12, padding: 14, marginTop: 6 }}>
           <h3 style={{ color: C.trueBlue, fontSize: 13, margin: '0 0 10px', fontWeight: 600 }}>Marcos</h3>
-          {CONQUISTAS.map(c => { const achieved = days >= c.dias; return (<div key={c.dias} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid ' + C.blancDeBlanc }}><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 20, height: 20, borderRadius: '50%', background: achieved ? C.success : C.blancDeBlanc, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.white, fontSize: 10 }}>{achieved ? '✓' : ''}</span><span style={{ color: achieved ? C.trueBlue : C.blackRobe, opacity: achieved ? 1 : 0.5, fontSize: 12 }}>{c.nome}</span></div><span style={{ color: achieved ? C.success : C.blackRobe, opacity: achieved ? 1 : 0.5, fontSize: 11 }}>+{c.xp} XP</span></div>) })}
+          {CONQUISTAS.map(c => {
+            const achieved = days >= c.dias
+            return (
+              <div key={c.dias} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid ' + C.blancDeBlanc }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 20, height: 20, borderRadius: '50%', background: achieved ? C.success : C.blancDeBlanc, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.white, fontSize: 10 }}>{achieved ? '✓' : ''}</span>
+                  <span style={{ color: achieved ? C.trueBlue : C.blackRobe, opacity: achieved ? 1 : 0.5, fontSize: 12 }}>{c.nome}</span>
+                </div>
+                <span style={{ color: achieved ? C.success : C.blackRobe, opacity: achieved ? 1 : 0.5, fontSize: 11 }}>+{c.xp} XP</span>
+              </div>
+            )
+          })}
         </div>
       </div>
     )
@@ -557,8 +406,22 @@ export default function PatientApp({ user, onLogout }) {
     <div style={{ padding: 20, paddingBottom: 100 }}>
       <h1 style={{ color: C.trueBlue, fontSize: 18, marginBottom: 14, fontWeight: 600 }}>Ferramentas</h1>
       <div style={{ display: 'grid', gap: 10 }}>
-        {[{ id: 'videos', icon: '📚', label: 'Pílulas de Conhecimento', desc: 'Vídeos dos especialistas APAJ' }, { id: 'autoexclusao', icon: '🛡️', label: 'Central de Autoexclusão', desc: 'Bloqueie acesso às bets' }, { id: 'goals', icon: '🎯', label: 'Objetivos de Vida', desc: 'Transforme economia em metas' }, { id: 'donate', icon: '💙', label: 'Apoie a APAJ', desc: 'Doação via PIX' }].map(t => (
-          <button key={t.id} onClick={() => setPage(t.id)} style={{ background: C.white, border: 'none', borderRadius: 12, padding: 16, cursor: 'pointer', textAlign: 'left', display: 'flex', gap: 14, alignItems: 'center' }}><span style={{ fontSize: 28 }}>{t.icon}</span><div><h3 style={{ color: C.trueBlue, fontSize: 13, margin: '0 0 2px', fontWeight: 600 }}>{t.label}</h3><p style={{ color: C.blackRobe, fontSize: 11, margin: 0, opacity: 0.6 }}>{t.desc}</p></div></button>
+        {[
+          { id: 'videos', icon: '📚', label: 'Pílulas de Conhecimento', desc: 'Vídeos dos especialistas APAJ' },
+          { id: 'autoexclusao', icon: '🛡️', label: 'Central de Autoexclusão', desc: 'Bloqueie acesso às plataformas' },
+          { id: 'goals', icon: '🎯', label: 'Objetivos de Vida', desc: 'Transforme economia em metas' },
+          { id: 'vault', icon: '📦', label: 'Cofre de Evidências', desc: 'Lembretes para momentos difíceis' },
+          { id: 'contract', icon: '📋', label: 'Contrato Comportamental', desc: 'Seus compromissos' },
+          { id: 'crisis', icon: '🚨', label: 'Plano de Crise', desc: 'Passos de emergência' },
+          { id: 'donate', icon: '💙', label: 'Apoiar a APAJ', desc: 'Contribua com a causa' }
+        ].map(t => (
+          <button key={t.id} onClick={() => setPage(t.id)} style={{ background: C.white, border: 'none', borderRadius: 12, padding: 14, cursor: 'pointer', textAlign: 'left', display: 'flex', gap: 12, alignItems: 'center' }}>
+            <span style={{ fontSize: 28 }}>{t.icon}</span>
+            <div>
+              <h3 style={{ color: C.trueBlue, fontSize: 13, margin: '0 0 2px', fontWeight: 600 }}>{t.label}</h3>
+              <p style={{ color: C.blackRobe, fontSize: 11, margin: 0, opacity: 0.6 }}>{t.desc}</p>
+            </div>
+          </button>
         ))}
       </div>
     </div>
@@ -568,13 +431,37 @@ export default function PatientApp({ user, onLogout }) {
     <div style={{ padding: 20, paddingBottom: 100 }}>
       <h1 style={{ color: C.trueBlue, fontSize: 18, marginBottom: 14, fontWeight: 600 }}>Perfil</h1>
       <div style={{ background: C.white, borderRadius: 12, padding: 16, marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}><div style={{ width: 50, height: 50, background: C.trueBlue, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: C.white, fontWeight: 600 }}>{profile?.name?.charAt(0) || '?'}</div><div><h2 style={{ color: C.trueBlue, fontSize: 15, margin: '0 0 2px', fontWeight: 600 }}>{profile?.name || 'Usuário'}</h2><p style={{ color: C.blackRobe, fontSize: 11, margin: 0, opacity: 0.6 }}>{user.email}</p></div></div>
-        <div style={{ background: C.iceMelt, borderRadius: 10, padding: 12, marginBottom: 10 }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: C.trueBlue, fontWeight: 600, fontSize: 12 }}>Level {currentLevel.level} - {currentLevel.nome}</span><span style={{ color: C.alaskanBlue, fontWeight: 700 }}>{totalXP} XP</span></div></div>
-        {profile?.emergency_contact?.phone && <div style={{ background: '#e8f5e9', borderRadius: 10, padding: 10, marginBottom: 10 }}><p style={{ color: C.success, fontSize: 11, margin: 0 }}>📱 SOS: {profile.emergency_contact.name || profile.emergency_contact.phone}</p></div>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{ width: 50, height: 50, background: C.trueBlue, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: C.white, fontWeight: 600 }}>{profile?.name?.charAt(0) || '?'}</div>
+          <div>
+            <h2 style={{ color: C.trueBlue, fontSize: 15, margin: '0 0 2px', fontWeight: 600 }}>{profile?.name || 'Usuário'}</h2>
+            <p style={{ color: C.blackRobe, fontSize: 11, margin: 0, opacity: 0.6 }}>{user.email}</p>
+          </div>
+        </div>
+        <div style={{ background: C.iceMelt, borderRadius: 10, padding: 12, marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: C.trueBlue, fontWeight: 600, fontSize: 12 }}>Level {currentLevel.level} - {currentLevel.nome}</span>
+            <span style={{ color: C.alaskanBlue, fontWeight: 700 }}>{totalXP} XP</span>
+          </div>
+        </div>
+        {profile?.emergency_contact?.phone && (
+          <div style={{ background: '#e8f5e9', borderRadius: 10, padding: 10, marginBottom: 10 }}>
+            <p style={{ color: C.success, fontSize: 11, margin: 0 }}>📱 SOS: {profile.emergency_contact.name || profile.emergency_contact.phone}</p>
+          </div>
+        )}
+        {profile?.night_mode_settings?.enabled && (
+          <div style={{ background: '#e3f2fd', borderRadius: 10, padding: 10, marginBottom: 10 }}>
+            <p style={{ color: C.trueBlue, fontSize: 11, margin: 0 }}>🌙 Modo Noturno: {profile.night_mode_settings.start_hour}h às {profile.night_mode_settings.end_hour}h</p>
+          </div>
+        )}
         <button onClick={() => setPage('setup')} style={{ width: '100%', padding: 10, background: C.iceMelt, border: 'none', borderRadius: 8, cursor: 'pointer', color: C.trueBlue, fontWeight: 500, fontSize: 12, marginBottom: 8 }}>Editar Configurações</button>
         <button onClick={handleLogout} style={{ width: '100%', padding: 10, background: '#ffebee', border: 'none', borderRadius: 8, color: C.danger, cursor: 'pointer', fontWeight: 500, fontSize: 12 }}>Sair</button>
       </div>
     </div>
+  )
+
+  const BackButton = ({ to }) => (
+    <button onClick={() => setPage(to)} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button>
   )
 
   const renderPage = () => {
@@ -585,15 +472,15 @@ export default function PatientApp({ user, onLogout }) {
       case 'progress': return <Progress />
       case 'tools': return <Tools />
       case 'profile': return <Profile />
-      case 'goals': return <div style={{ padding: 20, paddingBottom: 100 }}><button onClick={() => setPage('home')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button><GoalsTracker userId={user.id} savings={savings} goals={goals} onUpdate={loadData} /></div>
-      case 'vault': return <VaultManager userId={user.id} vault={vault} onUpdate={loadData} onClose={() => setPage('home')} />
-      case 'contract': return <BehavioralContract userId={user.id} contract={contract} onUpdate={loadData} onClose={() => setPage('home')} />
-      case 'crisis': return <CrisisPlan userId={user.id} plan={crisisPlan} onUpdate={loadData} onClose={() => setPage('home')} viewOnly={false} />
+      case 'goals': return <div style={{ padding: 20, paddingBottom: 100 }}><BackButton to="home" /><GoalsTracker userId={user.id} savings={savings} goals={goals} onUpdate={loadData} /></div>
+      case 'vault': return <VaultManager userId={user.id} vault={vault} onUpdate={loadData} onClose={() => setPage('tools')} />
+      case 'contract': return <BehavioralContract userId={user.id} contract={contract} onUpdate={loadData} onClose={() => setPage('tools')} />
+      case 'crisis': return <CrisisPlan userId={user.id} plan={crisisPlan} onUpdate={loadData} onClose={() => setPage('tools')} viewOnly={false} />
+      case 'autoexclusao': return <div style={{ padding: 20, paddingBottom: 100 }}><BackButton to="tools" /><AutoexclusaoCentral /></div>
+      case 'videos': return <div style={{ padding: 20, paddingBottom: 100 }}><BackButton to="tools" /><VideoFeed suggestedVideo={riskAlert?.video} /></div>
+      case 'donate': return <div style={{ padding: 20, paddingBottom: 100 }}><BackButton to="tools" /><DoacaoAPAJ savings={savings.total} milestone={days >= 30} /></div>
       case 'mentor': return <MentorSystem userId={user.id} days={days} profile={profile} onClose={() => setPage('home')} />
       case 'victories': return <VictoryWall onClose={() => setPage('home')} />
-      case 'videos': return <div style={{ padding: 20, paddingBottom: 100 }}><button onClick={() => setPage('tools')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button><VideoFeed suggestedVideo={riskAlert?.video} /></div>
-      case 'autoexclusao': return <div style={{ padding: 20, paddingBottom: 100 }}><button onClick={() => setPage('tools')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button><AutoexclusaoCentral /></div>
-      case 'donate': return <div style={{ padding: 20, paddingBottom: 100 }}><button onClick={() => setPage('tools')} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 16, fontWeight: 500 }}>← Voltar</button><DoacaoAPAJ savings={savings.total} milestone={days >= 30} /></div>
       default: return <Home />
     }
   }
