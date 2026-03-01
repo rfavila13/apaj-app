@@ -95,7 +95,7 @@ export default function PatientApp({ user, onLogout }) {
     catch (e) { console.error('Erro ao publicar vitória:', e) }
   }
 
-  const handleLogout = async () => { await supabase.auth.signOut(); if (onLogout) onLogout() }
+  const handleLogout = () => { if (onLogout) onLogout() }
 
   const days = profile?.sober_start_date ? patientService.calcDays(profile.sober_start_date, relapses) : 0
   const savings = profile?.sober_start_date && profile?.previous_gambling_amount ? patientService.calcSavings(profile.sober_start_date, profile.previous_gambling_amount, relapses) : { total: 0 }

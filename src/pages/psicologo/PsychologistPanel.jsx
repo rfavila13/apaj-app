@@ -96,7 +96,7 @@ export default function PsychologistPanel({ user, onLogout }) {
     } catch (e) { alert('Erro: ' + e.message) }
   }
 
-  const handleLogout = async () => { await supabase.auth.signOut(); if (onLogout) onLogout() }
+  const handleLogout = () => { if (onLogout) onLogout() }
 
   const pending = contactRequests.filter(r => r.status === 'pending').length
   const highRiskCount = Object.values(patientsRisk).filter(r => r.level === 'high').length
@@ -360,8 +360,9 @@ export default function PsychologistPanel({ user, onLogout }) {
       setSavingChallenge(true)
       try {
         // Desativa desafios anteriores ativos
-        await supabase.from('community_challenges').update({ is_active: false }).eq('is_active', true)
-        const { data } = await supabase.from('community_challenges').insert({
+        const { error: updateError } = await supabase.from('community_challenges').update({ is_active: false }).eq('is_active', true)
+        if (updateError) throw updateError
+        const { data, error: insertError } = await supabase.from('community_challenges').insert({
           title: challengeForm.title.trim(),
           description: challengeForm.description.trim(),
           tip: challengeForm.tip.trim() || null,
@@ -373,11 +374,12 @@ export default function PsychologistPanel({ user, onLogout }) {
           participants_count: 0,
           completions_count: 0
         }).select().single()
+        if (insertError) throw insertError
         if (data) setActiveChallenges(prev => [data, ...prev.map(c => ({ ...c, is_active: false }))])
         setChallengeForm({ title: '', description: '', tip: '', duration_days: 7, end_date: '', xp_reward: 100 })
         setShowNewChallenge(false)
         alert('Desafio criado e publicado para todos os pacientes!')
-      } catch (e) { alert('Erro: ' + e.message) }
+      } catch (e) { alert('Erro ao criar desafio: ' + e.message) }
       finally { setSavingChallenge(false) }
     }
 

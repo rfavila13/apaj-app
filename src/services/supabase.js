@@ -4,7 +4,7 @@ const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 export const supabase = createClient(url, key)
 export const signIn = (email, pw) => supabase.auth.signInWithPassword({ email, password: pw })
 export const signUp = (email, pw, data) => supabase.auth.signUp({ email, password: pw, options: { data } })
-export const signOut = () => supabase.auth.signOut()
+export const signOut = () => supabase.auth.signOut({ scope: 'local' })
 export const checkUserType = async (id) => {
   const { data: p } = await supabase.from('psychologists').select('id,name').eq('id', id).single()
   if (p) return { type: 'psychologist', data: p }
