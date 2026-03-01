@@ -15,6 +15,10 @@ import StoryWall from '../../components/StoryWall'
 import CommunityChallenge from '../../components/CommunityChallenge'
 import BreathingMode from '../../components/BreathingMode'
 import { VideoFeed, AutoexclusaoCentral, DoacaoAPAJ } from '../../components/APAJEcosystem'
+import ResourceLibrary from '../../components/ResourceLibrary'
+import SupportNetwork from '../../components/SupportNetwork'
+import DailyMissions from '../../components/DailyMissions'
+import MeetingRooms from '../../components/MeetingRooms'
 
 const C = { trueBlue: '#1d3f77', alaskanBlue: '#66aae2', iceMelt: '#d4eaff', blackRobe: '#2b2b2b', blancDeBlanc: '#e9e9ea', white: '#ffffff', success: '#28a068', warning: '#e8a040', danger: '#d04040' }
 
@@ -191,9 +195,25 @@ export default function PatientApp({ user, onLogout }) {
             <span style={{ fontSize: 24 }}>📖</span>
             <p style={{ color: C.white, fontSize: 10, margin: '6px 0 0', fontWeight: 600 }}>Histórias</p>
           </button>
-          <button onClick={() => setPage('breathing')} style={{ background: C.success, border: 'none', borderRadius: 14, padding: '14px 10px', cursor: 'pointer', textAlign: 'center' }}>
-            <span style={{ fontSize: 24 }}>🧘</span>
-            <p style={{ color: C.white, fontSize: 10, margin: '6px 0 0', fontWeight: 600 }}>Respirar</p>
+          <button onClick={() => setPage('rooms')} style={{ background: '#7b5ea7', border: 'none', borderRadius: 14, padding: '14px 10px', cursor: 'pointer', textAlign: 'center' }}>
+            <span style={{ fontSize: 24 }}>🗓️</span>
+            <p style={{ color: C.white, fontSize: 10, margin: '6px 0 0', fontWeight: 600 }}>Reuniões</p>
+          </button>
+        </div>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <DailyMissions userId={user.id} onClose={() => setPage('missoes')} compact />
+      </div>
+      <div style={{ marginTop: 4 }}>
+        <p style={{ color: C.blackRobe, fontSize: 11, opacity: 0.5, margin: '0 0 10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Recursos & Apoio</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <button onClick={() => setPage('biblioteca')} style={{ background: C.white, border: 'none', borderRadius: 14, padding: '14px 10px', cursor: 'pointer', textAlign: 'center' }}>
+            <span style={{ fontSize: 24 }}>📚</span>
+            <p style={{ color: C.trueBlue, fontSize: 10, margin: '6px 0 0', fontWeight: 600 }}>Biblioteca</p>
+          </button>
+          <button onClick={() => setPage('rede-apoio')} style={{ background: C.white, border: 'none', borderRadius: 14, padding: '14px 10px', cursor: 'pointer', textAlign: 'center' }}>
+            <span style={{ fontSize: 24 }}>🏥</span>
+            <p style={{ color: C.trueBlue, fontSize: 10, margin: '6px 0 0', fontWeight: 600 }}>Rede de Apoio</p>
           </button>
         </div>
       </div>
@@ -427,16 +447,20 @@ export default function PatientApp({ user, onLogout }) {
       <h1 style={{ color: C.trueBlue, fontSize: 18, marginBottom: 14, fontWeight: 600 }}>Ferramentas</h1>
       <div style={{ display: 'grid', gap: 10 }}>
         {[
-          { id: 'videos', icon: '📚', label: 'Pílulas de Conhecimento', desc: 'Vídeos dos especialistas APAJ' },
+          { id: 'missoes', icon: '🎯', label: 'Missões Diárias', desc: 'Desafios diários para toda a comunidade' },
+          { id: 'biblioteca', icon: '📚', label: 'Biblioteca de Recursos', desc: 'Livros, podcasts, artigos e vídeos' },
+          { id: 'rede-apoio', icon: '🏥', label: 'Rede de Apoio (SUS)', desc: 'CVV, CAPS, JA, direitos e políticas' },
+          { id: 'rooms', icon: '🗓️', label: 'Salas & Reuniões', desc: 'Grupos de terapia e mural da comunidade' },
+          { id: 'breathing', icon: '🧘', label: 'Respiração Guiada', desc: 'Técnicas para momentos difíceis' },
+          { id: 'videos', icon: '🎥', label: 'Pílulas de Conhecimento', desc: 'Vídeos dos especialistas APAJ' },
           { id: 'autoexclusao', icon: '🛡️', label: 'Central de Autoexclusão', desc: 'Bloqueie acesso às plataformas' },
           { id: 'goals', icon: '🎯', label: 'Objetivos de Vida', desc: 'Transforme economia em metas' },
           { id: 'vault', icon: '📦', label: 'Cofre de Evidências', desc: 'Lembretes para momentos difíceis' },
           { id: 'contract', icon: '📋', label: 'Contrato Comportamental', desc: 'Seus compromissos' },
           { id: 'crisis', icon: '🚨', label: 'Plano de Crise', desc: 'Passos de emergência' },
-          { id: 'donate', icon: '💙', label: 'Apoiar a APAJ', desc: 'Contribua com a causa' },
           { id: 'stories', icon: '📖', label: 'Histórias de Superação', desc: 'Inspire-se e inspire a comunidade' },
           { id: 'challenge', icon: '🏆', label: 'Desafio da Semana', desc: 'Missão coletiva da comunidade' },
-          { id: 'breathing', icon: '🧘', label: 'Respiração Guiada', desc: 'Técnicas para momentos difíceis' }
+          { id: 'donate', icon: '💙', label: 'Apoiar a APAJ', desc: 'Contribua com a causa' }
         ].map(t => (
           <button key={t.id} onClick={() => setPage(t.id)} style={{ background: C.white, border: 'none', borderRadius: 12, padding: 14, cursor: 'pointer', textAlign: 'left', display: 'flex', gap: 12, alignItems: 'center' }}>
             <span style={{ fontSize: 28 }}>{t.icon}</span>
@@ -507,6 +531,10 @@ export default function PatientApp({ user, onLogout }) {
       case 'stories': return <StoryWall userId={user.id} days={days} onClose={() => setPage('tools')} />
       case 'challenge': return <CommunityChallenge userId={user.id} onClose={() => setPage('tools')} />
       case 'breathing': return <BreathingMode onClose={() => setPage('tools')} />
+      case 'biblioteca': return <ResourceLibrary onClose={() => setPage('tools')} />
+      case 'rede-apoio': return <SupportNetwork onClose={() => setPage('tools')} />
+      case 'missoes': return <DailyMissions userId={user.id} onClose={() => setPage('tools')} />
+      case 'rooms': return <MeetingRooms userId={user.id} onClose={() => setPage('tools')} />
       default: return <Home />
     }
   }
