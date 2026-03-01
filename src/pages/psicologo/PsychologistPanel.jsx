@@ -16,6 +16,8 @@ export default function PsychologistPanel({ user, onLogout }) {
   const [groups, setGroups] = useState([])
   const [groupInterests, setGroupInterests] = useState([])
   const [sosLogs, setSosLogs] = useState([])
+  const [pendingStories, setPendingStories] = useState([])
+  const [activeChallenges, setActiveChallenges] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
@@ -23,13 +25,15 @@ export default function PsychologistPanel({ user, onLogout }) {
 
   const loadData = async () => {
     try {
-      const [pr, pa, req, gr, interests, sos] = await Promise.all([
+      const [pr, pa, req, gr, interests, sos, stories, challenges] = await Promise.all([
         psychologistService.getMyProfile(user.id),
         psychologistService.getAllPatients(),
         psychologistService.getContactRequests(),
         supabase.from('therapy_groups').select('*').order('name'),
         supabase.from('group_interest').select('*').order('created_at', { ascending: false }),
-        supabase.from('sos_logs').select('*, patients(name)').order('created_at', { ascending: false }).limit(50)
+        supabase.from('sos_logs').select('*, patients(name)').order('created_at', { ascending: false }).limit(50),
+        supabase.from('recovery_stories').select('*').eq('approved', false).order('created_at', { ascending: false }),
+        supabase.from('community_challenges').select('*').order('created_at', { ascending: false }).limit(20)
       ])
       setProfile(pr.data)
       setPatients(pa.data || [])
@@ -37,6 +41,8 @@ export default function PsychologistPanel({ user, onLogout }) {
       setGroups(gr.data || [])
       setGroupInterests(interests.data || [])
       setSosLogs(sos.data || [])
+      setPendingStories(stories.data || [])
+      setActiveChallenges(challenges.data || [])
       if (pa.data) calculateRisks(pa.data)
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
@@ -104,7 +110,7 @@ export default function PsychologistPanel({ user, onLogout }) {
     <aside style={{ width: 240, background: C.trueBlue, minHeight: '100vh', padding: '20px 0', position: 'fixed', left: 0, top: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '0 20px', marginBottom: 28, textAlign: 'center' }}><img src="/logo-apaj.png" alt="APAJ" style={{ width: 100, filter: 'brightness(0) invert(1)' }} /></div>
       <nav style={{ padding: '0 10px', flex: 1 }}>
-        {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'radar', icon: '🎯', label: 'Radar de Risco', badge: highRiskCount }, { id: 'patients', icon: '👥', label: 'Pacientes' }, { id: 'groups', icon: '🗓️', label: 'Grupos' }, { id: 'requests', icon: '📩', label: 'Solicitações', badge: pending }, { id: 'sos', icon: '🆘', label: 'Alertas SOS', badge: recentSOS }].map(i => (
+        {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'radar', icon: '🎯', label: 'Radar de Risco', badge: highRiskCount }, { id: 'patients', icon: '👥', label: 'Pacientes' }, { id: 'groups', icon: '🗓️', label: 'Grupos' }, { id: 'requests', icon: '📩', label: 'Solicitações', badge: pending }, { id: 'sos', icon: '🆘', label: 'Alertas SOS', badge: recentSOS }, { id: 'community', icon: '🌟', label: 'Comunidade', badge: pendingStories.length }].map(i => (
           <button key={i.id} onClick={() => { setPage(i.id); setSelectedPatient(null) }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: page === i.id ? 'rgba(255,255,255,0.12)' : 'transparent', border: 'none', borderRadius: 10, color: C.white, cursor: 'pointer', marginBottom: 4, position: 'relative', textAlign: 'left', opacity: page === i.id ? 1 : 0.75 }}>
             <span style={{ fontSize: 18 }}>{i.icon}</span><span style={{ fontSize: 13 }}>{i.label}</span>
             {i.badge > 0 && <span style={{ position: 'absolute', right: 10, background: i.id === 'radar' || i.id === 'sos' ? C.danger : C.warning, color: C.white, fontSize: 10, padding: '2px 7px', borderRadius: 10 }}>{i.badge}</span>}
@@ -121,11 +127,17 @@ export default function PsychologistPanel({ user, onLogout }) {
   const Dashboard = () => (
     <div>
       <h1 style={{ fontSize: 24, color: C.trueBlue, marginBottom: 24, fontWeight: 600 }}>Olá, {profile?.name?.split(' ')[0]}!</h1>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
-        {[{ label: 'Pacientes', value: patients.length, icon: '👥', color: C.trueBlue }, { label: 'Alto Risco', value: highRiskCount, icon: '⚠️', color: C.danger }, { label: 'SOS Hoje', value: recentSOS, icon: '🆘', color: C.warning }, { label: 'Grupos', value: groups.length, icon: '🗓️', color: C.success }].map((s, i) => (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 24 }}>
+        {[{ label: 'Pacientes', value: patients.length, icon: '👥', color: C.trueBlue }, { label: 'Alto Risco', value: highRiskCount, icon: '⚠️', color: C.danger }, { label: 'SOS Hoje', value: recentSOS, icon: '🆘', color: C.warning }, { label: 'Grupos', value: groups.length, icon: '🗓️', color: C.success }, { label: 'Histórias Pendentes', value: pendingStories.length, icon: '📖', color: C.alaskanBlue }].map((s, i) => (
           <div key={i} style={card}><span style={{ fontSize: 28 }}>{s.icon}</span><p style={{ fontSize: 32, fontWeight: 700, color: s.color, margin: '10px 0 4px' }}>{s.value}</p><p style={{ fontSize: 12, color: C.blackRobe, margin: 0, opacity: 0.6 }}>{s.label}</p></div>
         ))}
       </div>
+      {pendingStories.length > 0 && (
+        <div style={{ ...card, borderLeft: '4px solid ' + C.alaskanBlue, marginBottom: 20, cursor: 'pointer' }} onClick={() => setPage('community')}>
+          <h3 style={{ color: C.alaskanBlue, margin: '0 0 8px', fontSize: 14 }}>📖 Histórias aguardando revisão</h3>
+          <p style={{ color: C.blackRobe, margin: 0, fontSize: 13, opacity: 0.7 }}>{pendingStories.length} história(s) enviada(s) por pacientes precisam de sua aprovação antes de serem publicadas na comunidade.</p>
+        </div>
+      )}
       {recentSOS > 0 && (
         <div style={{ ...card, borderLeft: '4px solid ' + C.danger, marginBottom: 20 }}>
           <h3 style={{ color: C.danger, margin: '0 0 12px', fontSize: 14 }}>🆘 SOS Acionados nas últimas 24h</h3>
@@ -307,7 +319,245 @@ export default function PsychologistPanel({ user, onLogout }) {
 
   const SOS = () => (<div><h1 style={{ fontSize: 24, color: C.trueBlue, marginBottom: 8, fontWeight: 600 }}>Alertas SOS</h1><p style={{ color: C.blackRobe, opacity: 0.7, marginBottom: 20, fontSize: 13 }}>Pacientes que acionaram o botão de emergência.</p>{sosLogs.length === 0 ? <div style={{ ...card, textAlign: 'center', padding: 40 }}><p style={{ color: C.blackRobe, opacity: 0.6 }}>Nenhum registro</p></div> : sosLogs.slice(0, 30).map(s => (<div key={s.id} style={{ ...card, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><div><p style={{ color: C.trueBlue, margin: 0, fontWeight: 600, fontSize: 13 }}>{s.patients?.name || 'Paciente'}</p><p style={{ color: C.blackRobe, margin: '4px 0 0', opacity: 0.6, fontSize: 11 }}>{new Date(s.created_at).toLocaleString('pt-BR')}</p></div><button onClick={() => { const p = patients.find(pt => pt.id === s.patient_id); if (p) loadPatient(p) }} style={{ background: C.iceMelt, border: 'none', padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 11 }}>Ver paciente</button></div>))}</div>)
 
-  const renderPage = () => { switch (page) { case 'dashboard': return <Dashboard />; case 'radar': return <Radar />; case 'patients': return <Patients />; case 'patient': return <Patient />; case 'groups': return <Groups />; case 'requests': return <Requests />; case 'sos': return <SOS />; default: return <Dashboard /> } }
+  const Community = () => {
+    const [tab, setTab] = useState('stories')
+    const [showNewChallenge, setShowNewChallenge] = useState(false)
+    const [allStories, setAllStories] = useState([])
+    const [loadingStories, setLoadingStories] = useState(false)
+    const [challengeForm, setChallengeForm] = useState({ title: '', description: '', tip: '', duration_days: 7, end_date: '', xp_reward: 100 })
+    const [savingChallenge, setSavingChallenge] = useState(false)
+
+    useEffect(() => {
+      if (tab === 'stories') loadAllStories()
+    }, [tab])
+
+    const loadAllStories = async () => {
+      setLoadingStories(true)
+      const { data } = await supabase.from('recovery_stories').select('*').order('created_at', { ascending: false })
+      if (data) setAllStories(data)
+      setLoadingStories(false)
+    }
+
+    const approveStory = async (storyId) => {
+      await supabase.from('recovery_stories').update({ approved: true }).eq('id', storyId)
+      setAllStories(prev => prev.map(s => s.id === storyId ? { ...s, approved: true } : s))
+      setPendingStories(prev => prev.filter(s => s.id !== storyId))
+    }
+
+    const rejectStory = async (storyId) => {
+      if (!window.confirm('Tem certeza que deseja remover esta história?')) return
+      await supabase.from('recovery_stories').delete().eq('id', storyId)
+      setAllStories(prev => prev.filter(s => s.id !== storyId))
+      setPendingStories(prev => prev.filter(s => s.id !== storyId))
+    }
+
+    const createChallenge = async (e) => {
+      e.preventDefault()
+      if (!challengeForm.title.trim() || !challengeForm.description.trim() || !challengeForm.end_date) {
+        alert('Preencha título, descrição e data de encerramento')
+        return
+      }
+      setSavingChallenge(true)
+      try {
+        // Desativa desafios anteriores ativos
+        await supabase.from('community_challenges').update({ is_active: false }).eq('is_active', true)
+        const { data } = await supabase.from('community_challenges').insert({
+          title: challengeForm.title.trim(),
+          description: challengeForm.description.trim(),
+          tip: challengeForm.tip.trim() || null,
+          duration_days: parseInt(challengeForm.duration_days) || 7,
+          is_active: true,
+          start_date: new Date().toISOString().split('T')[0],
+          end_date: challengeForm.end_date,
+          xp_reward: parseInt(challengeForm.xp_reward) || 100,
+          participants_count: 0,
+          completions_count: 0
+        }).select().single()
+        if (data) setActiveChallenges(prev => [data, ...prev.map(c => ({ ...c, is_active: false }))])
+        setChallengeForm({ title: '', description: '', tip: '', duration_days: 7, end_date: '', xp_reward: 100 })
+        setShowNewChallenge(false)
+        alert('Desafio criado e publicado para todos os pacientes!')
+      } catch (e) { alert('Erro: ' + e.message) }
+      finally { setSavingChallenge(false) }
+    }
+
+    const toggleChallenge = async (challengeId, currentActive) => {
+      if (!currentActive && window.confirm('Isso desativará o desafio atual. Continuar?')) {
+        await supabase.from('community_challenges').update({ is_active: false }).eq('is_active', true)
+      }
+      await supabase.from('community_challenges').update({ is_active: !currentActive }).eq('id', challengeId)
+      setActiveChallenges(prev => prev.map(c => c.id === challengeId ? { ...c, is_active: !currentActive } : currentActive ? { ...c, is_active: false } : c))
+    }
+
+    const CATEGORY_LABELS = { superacao: '🌟 Superação', familia: '👨‍👩‍👧 Família', financeiro: '💰 Financeiro', recomeco: '🌱 Recomeço', motivacao: '💪 Motivação' }
+
+    return (
+      <div>
+        <h1 style={{ fontSize: 24, color: C.trueBlue, marginBottom: 8, fontWeight: 600 }}>🌟 Gestão da Comunidade</h1>
+        <p style={{ color: C.blackRobe, opacity: 0.7, marginBottom: 24, fontSize: 13 }}>Modere histórias e gerencie desafios semanais.</p>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+          {[{ id: 'stories', label: `📖 Histórias${pendingStories.length > 0 ? ` (${pendingStories.length} pendentes)` : ''}` }, { id: 'challenges', label: '🏆 Desafios Semanais' }].map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              style={{ background: tab === t.id ? C.trueBlue : C.blancDeBlanc, color: tab === t.id ? C.white : C.blackRobe, border: 'none', padding: '10px 20px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: tab === t.id ? 600 : 400 }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'stories' && (
+          <div>
+            {pendingStories.length > 0 && (
+              <div style={{ ...card, borderLeft: '4px solid ' + C.warning, marginBottom: 20 }}>
+                <h3 style={{ color: C.warning, margin: '0 0 16px', fontSize: 14 }}>⏳ Aguardando Revisão ({pendingStories.length})</h3>
+                {pendingStories.map(story => (
+                  <div key={story.id} style={{ background: '#fffde7', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                      <div>
+                        <span style={{ background: C.iceMelt, color: C.trueBlue, padding: '3px 10px', borderRadius: 10, fontSize: 11 }}>{CATEGORY_LABELS[story.category] || story.category}</span>
+                        {story.milestone_days > 0 && <span style={{ background: '#e8f5e9', color: C.success, padding: '3px 10px', borderRadius: 10, fontSize: 11, marginLeft: 6 }}>{story.milestone_days} dias de recuperação</span>}
+                      </div>
+                      <span style={{ color: C.blackRobe, opacity: 0.5, fontSize: 11 }}>{new Date(story.created_at).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                    <h4 style={{ color: C.trueBlue, fontSize: 14, margin: '0 0 8px', fontWeight: 600 }}>{story.title}</h4>
+                    <p style={{ color: C.blackRobe, fontSize: 13, lineHeight: 1.6, margin: '0 0 14px' }}>{story.content}</p>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button onClick={() => approveStory(story.id)}
+                        style={{ flex: 1, background: C.success, color: C.white, border: 'none', padding: '10px 0', borderRadius: 10, fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+                        ✓ Aprovar e Publicar
+                      </button>
+                      <button onClick={() => rejectStory(story.id)}
+                        style={{ flex: 1, background: '#ffebee', color: C.danger, border: 'none', padding: '10px 0', borderRadius: 10, fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+                        ✕ Remover
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={card}>
+              <h3 style={{ color: C.trueBlue, fontSize: 14, margin: '0 0 16px', fontWeight: 600 }}>Todas as Histórias Publicadas</h3>
+              {loadingStories ? <p style={{ color: C.blackRobe, opacity: 0.6 }}>Carregando...</p> :
+                allStories.filter(s => s.approved).length === 0 ? (
+                  <p style={{ color: C.blackRobe, opacity: 0.6, fontSize: 13 }}>Nenhuma história publicada ainda.</p>
+                ) : allStories.filter(s => s.approved).map(story => (
+                  <div key={story.id} style={{ padding: '14px 0', borderBottom: '1px solid ' + C.blancDeBlanc }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+                          <span style={{ background: C.iceMelt, color: C.trueBlue, padding: '2px 8px', borderRadius: 8, fontSize: 10 }}>{CATEGORY_LABELS[story.category] || story.category}</span>
+                          <span style={{ color: C.blackRobe, opacity: 0.5, fontSize: 11 }}>{new Date(story.created_at).toLocaleDateString('pt-BR')}</span>
+                          <span style={{ color: C.alaskanBlue, fontSize: 11 }}>💙 {story.lights_count || 0} luzes</span>
+                        </div>
+                        <h4 style={{ color: C.trueBlue, fontSize: 13, margin: '0 0 4px', fontWeight: 600 }}>{story.title}</h4>
+                        <p style={{ color: C.blackRobe, fontSize: 12, margin: 0, opacity: 0.7 }}>{story.content.slice(0, 100)}...</p>
+                      </div>
+                      <button onClick={() => rejectStory(story.id)} style={{ background: '#ffebee', color: C.danger, border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 11, cursor: 'pointer', marginLeft: 12, flexShrink: 0 }}>Remover</button>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        )}
+
+        {tab === 'challenges' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+              <button onClick={() => setShowNewChallenge(true)} style={btn}>+ Novo Desafio</button>
+            </div>
+
+            {activeChallenges.length === 0 ? (
+              <div style={{ ...card, textAlign: 'center', padding: 40 }}>
+                <p style={{ fontSize: 36, margin: '0 0 12px' }}>🏆</p>
+                <p style={{ color: C.blackRobe, opacity: 0.6 }}>Nenhum desafio criado ainda.</p>
+                <button onClick={() => setShowNewChallenge(true)} style={{ ...btn, marginTop: 16 }}>Criar Primeiro Desafio</button>
+              </div>
+            ) : activeChallenges.map(challenge => (
+              <div key={challenge.id} style={{ ...card, marginBottom: 14, borderLeft: `4px solid ${challenge.is_active ? C.success : C.blancDeBlanc}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+                      <span style={{ background: challenge.is_active ? '#e8f5e9' : C.blancDeBlanc, color: challenge.is_active ? C.success : C.blackRobe, padding: '3px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>
+                        {challenge.is_active ? '● Ativo' : 'Inativo'}
+                      </span>
+                      <span style={{ color: C.blackRobe, opacity: 0.5, fontSize: 11 }}>{challenge.duration_days} dias • encerra {new Date(challenge.end_date).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                    <h3 style={{ color: C.trueBlue, fontSize: 15, margin: '0 0 6px', fontWeight: 600 }}>{challenge.title}</h3>
+                    <p style={{ color: C.blackRobe, fontSize: 13, margin: 0, opacity: 0.7 }}>{challenge.description}</p>
+                  </div>
+                  <button onClick={() => toggleChallenge(challenge.id, challenge.is_active)}
+                    style={{ background: challenge.is_active ? '#ffebee' : '#e8f5e9', color: challenge.is_active ? C.danger : C.success, border: 'none', padding: '8px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 12, fontWeight: 600, marginLeft: 16, flexShrink: 0 }}>
+                    {challenge.is_active ? 'Desativar' : 'Ativar'}
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, padding: 12, background: C.iceMelt, borderRadius: 10 }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ color: C.trueBlue, fontWeight: 700, fontSize: 20, margin: 0 }}>{challenge.participants_count || 0}</p>
+                    <p style={{ color: C.blackRobe, fontSize: 11, margin: '2px 0 0', opacity: 0.7 }}>participantes</p>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ color: C.success, fontWeight: 700, fontSize: 20, margin: 0 }}>{challenge.completions_count || 0}</p>
+                    <p style={{ color: C.blackRobe, fontSize: 11, margin: '2px 0 0', opacity: 0.7 }}>concluíram</p>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ color: C.alaskanBlue, fontWeight: 700, fontSize: 20, margin: 0 }}>{challenge.xp_reward || 0}</p>
+                    <p style={{ color: C.blackRobe, fontSize: 11, margin: '2px 0 0', opacity: 0.7 }}>XP recompensa</p>
+                  </div>
+                </div>
+                {challenge.tip && (
+                  <p style={{ color: C.blackRobe, opacity: 0.6, fontSize: 12, margin: '10px 0 0' }}>💡 Dica: {challenge.tip}</p>
+                )}
+              </div>
+            ))}
+
+            {showNewChallenge && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                <form onSubmit={createChallenge} style={{ background: C.white, borderRadius: 16, padding: 28, width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto' }}>
+                  <h2 style={{ color: C.trueBlue, marginBottom: 20, fontSize: 18, fontWeight: 600 }}>🏆 Novo Desafio</h2>
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ display: 'block', color: C.blackRobe, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>Título *</label>
+                    <input placeholder="Ex: 7 Dias Sem Apostar" value={challengeForm.title} onChange={e => setChallengeForm({ ...challengeForm, title: e.target.value })} style={{ ...input }} />
+                  </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ display: 'block', color: C.blackRobe, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>Descrição * (visível para todos os pacientes)</label>
+                    <textarea placeholder="Explique o desafio..." value={challengeForm.description} onChange={e => setChallengeForm({ ...challengeForm, description: e.target.value })} style={{ ...input, minHeight: 80, resize: 'none' }} />
+                  </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ display: 'block', color: C.blackRobe, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>Dica para o paciente (opcional)</label>
+                    <input placeholder="Ex: Quando sentir vontade, use a respiração guiada" value={challengeForm.tip} onChange={e => setChallengeForm({ ...challengeForm, tip: e.target.value })} style={{ ...input }} />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+                    <div>
+                      <label style={{ display: 'block', color: C.blackRobe, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>Duração (dias) *</label>
+                      <input type="number" min="1" max="30" value={challengeForm.duration_days} onChange={e => setChallengeForm({ ...challengeForm, duration_days: e.target.value })} style={{ ...input }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', color: C.blackRobe, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>Encerra em *</label>
+                      <input type="date" value={challengeForm.end_date} onChange={e => setChallengeForm({ ...challengeForm, end_date: e.target.value })} style={{ ...input }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', color: C.blackRobe, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>Recompensa XP</label>
+                      <input type="number" min="0" value={challengeForm.xp_reward} onChange={e => setChallengeForm({ ...challengeForm, xp_reward: e.target.value })} style={{ ...input }} />
+                    </div>
+                  </div>
+                  <div style={{ background: '#fff9e6', borderRadius: 10, padding: 12, marginBottom: 16 }}>
+                    <p style={{ color: '#c87d00', fontSize: 12, margin: 0 }}>⚠️ Criar um novo desafio desativará automaticamente o desafio ativo atual.</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button type="button" onClick={() => setShowNewChallenge(false)} style={{ flex: 1, padding: 12, background: C.blancDeBlanc, border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13 }}>Cancelar</button>
+                    <button type="submit" disabled={savingChallenge} style={{ ...btn, flex: 1 }}>{savingChallenge ? 'Criando...' : '🏆 Publicar Desafio'}</button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderPage = () => { switch (page) { case 'dashboard': return <Dashboard />; case 'radar': return <Radar />; case 'patients': return <Patients />; case 'patient': return <Patient />; case 'groups': return <Groups />; case 'requests': return <Requests />; case 'sos': return <SOS />; case 'community': return <Community />; default: return <Dashboard /> } }
 
   if (loading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.iceMelt }}><p style={{ color: C.trueBlue }}>Carregando...</p></div>
 
