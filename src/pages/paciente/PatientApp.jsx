@@ -11,6 +11,9 @@ import BehavioralContract from '../../components/BehavioralContract'
 import CrisisPlan from '../../components/CrisisPlan'
 import MentorSystem from '../../components/MentorSystem'
 import VictoryWall from '../../components/VictoryWall'
+import StoryWall from '../../components/StoryWall'
+import CommunityChallenge from '../../components/CommunityChallenge'
+import BreathingMode from '../../components/BreathingMode'
 import { VideoFeed, AutoexclusaoCentral, DoacaoAPAJ } from '../../components/APAJEcosystem'
 
 const C = { trueBlue: '#1d3f77', alaskanBlue: '#66aae2', iceMelt: '#d4eaff', blackRobe: '#2b2b2b', blancDeBlanc: '#e9e9ea', white: '#ffffff', success: '#28a068', warning: '#e8a040', danger: '#d04040' }
@@ -176,6 +179,23 @@ export default function PatientApp({ user, onLogout }) {
           <h3 style={{ color: C.trueBlue, fontSize: 13, margin: '8px 0 2px', fontWeight: 600 }}>Autoexclusão</h3>
           <p style={{ color: C.blackRobe, fontSize: 11, margin: 0, opacity: 0.6 }}>Bloquear acessos</p>
         </button>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <p style={{ color: C.blackRobe, fontSize: 11, opacity: 0.5, margin: '0 0 10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Comunidade</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          <button onClick={() => setPage('challenge')} style={{ background: C.trueBlue, border: 'none', borderRadius: 14, padding: '14px 10px', cursor: 'pointer', textAlign: 'center' }}>
+            <span style={{ fontSize: 24 }}>🏆</span>
+            <p style={{ color: C.white, fontSize: 10, margin: '6px 0 0', fontWeight: 600 }}>Desafio</p>
+          </button>
+          <button onClick={() => setPage('stories')} style={{ background: C.alaskanBlue, border: 'none', borderRadius: 14, padding: '14px 10px', cursor: 'pointer', textAlign: 'center' }}>
+            <span style={{ fontSize: 24 }}>📖</span>
+            <p style={{ color: C.white, fontSize: 10, margin: '6px 0 0', fontWeight: 600 }}>Histórias</p>
+          </button>
+          <button onClick={() => setPage('breathing')} style={{ background: C.success, border: 'none', borderRadius: 14, padding: '14px 10px', cursor: 'pointer', textAlign: 'center' }}>
+            <span style={{ fontSize: 24 }}>🧘</span>
+            <p style={{ color: C.white, fontSize: 10, margin: '6px 0 0', fontWeight: 600 }}>Respirar</p>
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -413,7 +433,10 @@ export default function PatientApp({ user, onLogout }) {
           { id: 'vault', icon: '📦', label: 'Cofre de Evidências', desc: 'Lembretes para momentos difíceis' },
           { id: 'contract', icon: '📋', label: 'Contrato Comportamental', desc: 'Seus compromissos' },
           { id: 'crisis', icon: '🚨', label: 'Plano de Crise', desc: 'Passos de emergência' },
-          { id: 'donate', icon: '💙', label: 'Apoiar a APAJ', desc: 'Contribua com a causa' }
+          { id: 'donate', icon: '💙', label: 'Apoiar a APAJ', desc: 'Contribua com a causa' },
+          { id: 'stories', icon: '📖', label: 'Histórias de Superação', desc: 'Inspire-se e inspire a comunidade' },
+          { id: 'challenge', icon: '🏆', label: 'Desafio da Semana', desc: 'Missão coletiva da comunidade' },
+          { id: 'breathing', icon: '🧘', label: 'Respiração Guiada', desc: 'Técnicas para momentos difíceis' }
         ].map(t => (
           <button key={t.id} onClick={() => setPage(t.id)} style={{ background: C.white, border: 'none', borderRadius: 12, padding: 14, cursor: 'pointer', textAlign: 'left', display: 'flex', gap: 12, alignItems: 'center' }}>
             <span style={{ fontSize: 28 }}>{t.icon}</span>
@@ -481,6 +504,9 @@ export default function PatientApp({ user, onLogout }) {
       case 'donate': return <div style={{ padding: 20, paddingBottom: 100 }}><BackButton to="tools" /><DoacaoAPAJ savings={savings.total} milestone={days >= 30} /></div>
       case 'mentor': return <MentorSystem userId={user.id} days={days} profile={profile} onClose={() => setPage('home')} />
       case 'victories': return <VictoryWall onClose={() => setPage('home')} />
+      case 'stories': return <StoryWall userId={user.id} days={days} onClose={() => setPage('tools')} />
+      case 'challenge': return <CommunityChallenge userId={user.id} onClose={() => setPage('tools')} />
+      case 'breathing': return <BreathingMode onClose={() => setPage('tools')} />
       default: return <Home />
     }
   }
