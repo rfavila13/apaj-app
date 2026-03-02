@@ -15,12 +15,15 @@ import StoryWall from '../../components/StoryWall'
 import CommunityChallenge from '../../components/CommunityChallenge'
 import BreathingMode from '../../components/BreathingMode'
 import { VideoFeed, AutoexclusaoCentral, DoacaoAPAJ } from '../../components/APAJEcosystem'
+import ResourceLibrary from '../../components/ResourceLibrary'
+import SupportNetwork from '../../components/SupportNetwork'
+import DailyMissions from '../../components/DailyMissions'
+import MeetingRooms from '../../components/MeetingRooms'
 
 const C = { trueBlue: '#1d3f77', alaskanBlue: '#66aae2', iceMelt: '#d4eaff', blackRobe: '#2b2b2b', blancDeBlanc: '#e9e9ea', white: '#ffffff', success: '#28a068', warning: '#e8a040', danger: '#d04040' }
 
 const FRASES = ["Cada dia sem apostar é uma vitória!", "Você é mais forte do que imagina.", "O dinheiro guardado constrói seu futuro.", "Liberdade é não depender do jogo.", "Sua família agradece cada escolha consciente."]
-const CONQUISTAS = [{ dias: 1, nome: '1º Dia', xp: 10 }, { dias: 3, nome: '3 Dias', xp: 30 }, { dias: 7, nome: '1 Semana', xp: 70 }, { dias: 14, nome: '2 Semanas', xp: 150 }, { dias: 30, nome: '1 Mês', xp: 300 }, { dias: 60, nome: '2 Meses', xp: 600 }, { dias: 90, nome: '3 Meses', xp: 1000 }, { dias: 180, nome: '6 Meses', xp: 2000 }, { dias: 365, nome: '1 Ano', xp: 5000 }]
-const XP_DIVIDA = 100, XP_CONQUISTA = 50, XP_DIARIO = 5
+const MARCOS = [{ dias: 1, nome: '1º Dia' }, { dias: 3, nome: '3 Dias' }, { dias: 7, nome: '1 Semana' }, { dias: 14, nome: '2 Semanas' }, { dias: 30, nome: '1 Mês' }, { dias: 60, nome: '2 Meses' }, { dias: 90, nome: '3 Meses' }, { dias: 180, nome: '6 Meses' }, { dias: 365, nome: '1 Ano' }]
 const MOOD_CONFIG = { 'Muito bem': { bg: '#c8e6c9', color: '#2e7d32', icon: '😌' }, 'Bem': { bg: '#dcedc8', color: '#558b2f', icon: '🙂' }, 'Neutro': { bg: '#fff9c4', color: '#f9a825', icon: '😐' }, 'Mal': { bg: '#ffccbc', color: '#e64a19', icon: '😕' }, 'Muito mal': { bg: '#ffcdd2', color: '#c62828', icon: '😔' } }
 const EMOTIONS = ['Calma', 'Gratidão', 'Esperança', 'Ansiedade', 'Tristeza', 'Raiva', 'Medo', 'Frustração', 'Culpa', 'Solidão', 'Tédio', 'Fissura']
 
@@ -99,9 +102,8 @@ export default function PatientApp({ user, onLogout }) {
 
   const days = profile?.sober_start_date ? patientService.calcDays(profile.sober_start_date, relapses) : 0
   const savings = profile?.sober_start_date && profile?.previous_gambling_amount ? patientService.calcSavings(profile.sober_start_date, profile.previous_gambling_amount, relapses) : { total: 0 }
-  const totalXP = CONQUISTAS.filter(c => days >= c.dias).reduce((sum, c) => sum + c.xp, 0) + Math.floor(savings.total * 0.1) + debts.length * XP_DIVIDA + purchases.length * XP_CONQUISTA + diaryEntries.length * XP_DIARIO
-  const getLevel = (xp) => { if (xp >= 5000) return { level: 7, nome: 'Avançado' }; if (xp >= 2000) return { level: 6, nome: 'Intermediário' }; if (xp >= 1000) return { level: 5, nome: 'Dedicado' }; if (xp >= 600) return { level: 4, nome: 'Persistente' }; if (xp >= 300) return { level: 3, nome: 'Comprometido' }; if (xp >= 100) return { level: 2, nome: 'Iniciante' }; return { level: 1, nome: 'Novato' } }
-  const currentLevel = getLevel(totalXP)
+  const getPhase = (d) => { if (d >= 365) return 'Superação'; if (d >= 180) return 'Transformação'; if (d >= 90) return 'Consolidação'; if (d >= 30) return 'Construção'; if (d >= 7) return 'Começo'; return 'Início' }
+  const currentPhase = getPhase(days)
 
   const NavBar = () => (
     <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.trueBlue, padding: '8px 0 12px', display: 'flex', justifyContent: 'space-around', zIndex: 1000, borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
@@ -152,12 +154,12 @@ export default function PatientApp({ user, onLogout }) {
               <p style={{ fontSize: 10, opacity: 0.8, margin: '4px 0 0' }}>Economizado</p>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.12)', padding: 12, borderRadius: 12, textAlign: 'center' }}>
-              <span style={{ fontSize: 15, fontWeight: 700 }}>{totalXP} XP</span>
-              <p style={{ fontSize: 10, opacity: 0.8, margin: '4px 0 0' }}>Pontuação</p>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>{diaryEntries.length}</span>
+              <p style={{ fontSize: 10, opacity: 0.8, margin: '4px 0 0' }}>Reflexões</p>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.12)', padding: 12, borderRadius: 12, textAlign: 'center' }}>
-              <span style={{ fontSize: 15, fontWeight: 700 }}>Nv. {currentLevel.level}</span>
-              <p style={{ fontSize: 10, opacity: 0.8, margin: '4px 0 0' }}>{currentLevel.nome}</p>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{currentPhase}</span>
+              <p style={{ fontSize: 10, opacity: 0.8, margin: '4px 0 0' }}>Sua fase</p>
             </div>
           </div>
         </div>
@@ -191,9 +193,25 @@ export default function PatientApp({ user, onLogout }) {
             <span style={{ fontSize: 24 }}>📖</span>
             <p style={{ color: C.white, fontSize: 10, margin: '6px 0 0', fontWeight: 600 }}>Histórias</p>
           </button>
-          <button onClick={() => setPage('breathing')} style={{ background: C.success, border: 'none', borderRadius: 14, padding: '14px 10px', cursor: 'pointer', textAlign: 'center' }}>
-            <span style={{ fontSize: 24 }}>🧘</span>
-            <p style={{ color: C.white, fontSize: 10, margin: '6px 0 0', fontWeight: 600 }}>Respirar</p>
+          <button onClick={() => setPage('rooms')} style={{ background: '#7b5ea7', border: 'none', borderRadius: 14, padding: '14px 10px', cursor: 'pointer', textAlign: 'center' }}>
+            <span style={{ fontSize: 24 }}>🗓️</span>
+            <p style={{ color: C.white, fontSize: 10, margin: '6px 0 0', fontWeight: 600 }}>Reuniões</p>
+          </button>
+        </div>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <DailyMissions userId={user.id} onClose={() => setPage('missoes')} compact />
+      </div>
+      <div style={{ marginTop: 4 }}>
+        <p style={{ color: C.blackRobe, fontSize: 11, opacity: 0.5, margin: '0 0 10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Recursos & Apoio</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <button onClick={() => setPage('biblioteca')} style={{ background: C.white, border: 'none', borderRadius: 14, padding: '14px 10px', cursor: 'pointer', textAlign: 'center' }}>
+            <span style={{ fontSize: 24 }}>📚</span>
+            <p style={{ color: C.trueBlue, fontSize: 10, margin: '6px 0 0', fontWeight: 600 }}>Biblioteca</p>
+          </button>
+          <button onClick={() => setPage('rede-apoio')} style={{ background: C.white, border: 'none', borderRadius: 14, padding: '14px 10px', cursor: 'pointer', textAlign: 'center' }}>
+            <span style={{ fontSize: 24 }}>🏥</span>
+            <p style={{ color: C.trueBlue, fontSize: 10, margin: '6px 0 0', fontWeight: 600 }}>Rede de Apoio</p>
           </button>
         </div>
       </div>
@@ -373,8 +391,8 @@ export default function PatientApp({ user, onLogout }) {
               <p style={{ fontSize: 9, opacity: 0.8, margin: '2px 0 0' }}>Economizado</p>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.12)', padding: 10, borderRadius: 10, textAlign: 'center' }}>
-              <span style={{ fontSize: 16, fontWeight: 700 }}>{totalXP}</span>
-              <p style={{ fontSize: 9, opacity: 0.8, margin: '2px 0 0' }}>XP Total</p>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>{diaryEntries.length}</span>
+              <p style={{ fontSize: 9, opacity: 0.8, margin: '2px 0 0' }}>Reflexões</p>
             </div>
           </div>
         </div>
@@ -405,7 +423,7 @@ export default function PatientApp({ user, onLogout }) {
         )}
         <div style={{ background: C.white, borderRadius: 12, padding: 14, marginTop: 6 }}>
           <h3 style={{ color: C.trueBlue, fontSize: 13, margin: '0 0 10px', fontWeight: 600 }}>Marcos</h3>
-          {CONQUISTAS.map(c => {
+          {MARCOS.map(c => {
             const achieved = days >= c.dias
             return (
               <div key={c.dias} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid ' + C.blancDeBlanc }}>
@@ -413,7 +431,7 @@ export default function PatientApp({ user, onLogout }) {
                   <span style={{ width: 20, height: 20, borderRadius: '50%', background: achieved ? C.success : C.blancDeBlanc, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.white, fontSize: 10 }}>{achieved ? '✓' : ''}</span>
                   <span style={{ color: achieved ? C.trueBlue : C.blackRobe, opacity: achieved ? 1 : 0.5, fontSize: 12 }}>{c.nome}</span>
                 </div>
-                <span style={{ color: achieved ? C.success : C.blackRobe, opacity: achieved ? 1 : 0.5, fontSize: 11 }}>+{c.xp} XP</span>
+                {achieved && <span style={{ color: C.success, fontSize: 11, fontWeight: 600 }}>Alcançado ✓</span>}
               </div>
             )
           })}
@@ -427,16 +445,20 @@ export default function PatientApp({ user, onLogout }) {
       <h1 style={{ color: C.trueBlue, fontSize: 18, marginBottom: 14, fontWeight: 600 }}>Ferramentas</h1>
       <div style={{ display: 'grid', gap: 10 }}>
         {[
-          { id: 'videos', icon: '📚', label: 'Pílulas de Conhecimento', desc: 'Vídeos dos especialistas APAJ' },
+          { id: 'missoes', icon: '🎯', label: 'Missões Diárias', desc: 'Desafios diários para toda a comunidade' },
+          { id: 'biblioteca', icon: '📚', label: 'Biblioteca de Recursos', desc: 'Livros, podcasts, artigos e vídeos' },
+          { id: 'rede-apoio', icon: '🏥', label: 'Rede de Apoio (SUS)', desc: 'CVV, CAPS, JA, direitos e políticas' },
+          { id: 'rooms', icon: '🗓️', label: 'Salas & Reuniões', desc: 'Grupos de terapia e mural da comunidade' },
+          { id: 'breathing', icon: '🧘', label: 'Respiração Guiada', desc: 'Técnicas para momentos difíceis' },
+          { id: 'videos', icon: '🎥', label: 'Pílulas de Conhecimento', desc: 'Vídeos dos especialistas APAJ' },
           { id: 'autoexclusao', icon: '🛡️', label: 'Central de Autoexclusão', desc: 'Bloqueie acesso às plataformas' },
           { id: 'goals', icon: '🎯', label: 'Objetivos de Vida', desc: 'Transforme economia em metas' },
           { id: 'vault', icon: '📦', label: 'Cofre de Evidências', desc: 'Lembretes para momentos difíceis' },
           { id: 'contract', icon: '📋', label: 'Contrato Comportamental', desc: 'Seus compromissos' },
           { id: 'crisis', icon: '🚨', label: 'Plano de Crise', desc: 'Passos de emergência' },
-          { id: 'donate', icon: '💙', label: 'Apoiar a APAJ', desc: 'Contribua com a causa' },
           { id: 'stories', icon: '📖', label: 'Histórias de Superação', desc: 'Inspire-se e inspire a comunidade' },
           { id: 'challenge', icon: '🏆', label: 'Desafio da Semana', desc: 'Missão coletiva da comunidade' },
-          { id: 'breathing', icon: '🧘', label: 'Respiração Guiada', desc: 'Técnicas para momentos difíceis' }
+          { id: 'donate', icon: '💙', label: 'Apoiar a APAJ', desc: 'Contribua com a causa' }
         ].map(t => (
           <button key={t.id} onClick={() => setPage(t.id)} style={{ background: C.white, border: 'none', borderRadius: 12, padding: 14, cursor: 'pointer', textAlign: 'left', display: 'flex', gap: 12, alignItems: 'center' }}>
             <span style={{ fontSize: 28 }}>{t.icon}</span>
@@ -463,8 +485,8 @@ export default function PatientApp({ user, onLogout }) {
         </div>
         <div style={{ background: C.iceMelt, borderRadius: 10, padding: 12, marginBottom: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: C.trueBlue, fontWeight: 600, fontSize: 12 }}>Level {currentLevel.level} - {currentLevel.nome}</span>
-            <span style={{ color: C.alaskanBlue, fontWeight: 700 }}>{totalXP} XP</span>
+            <span style={{ color: C.trueBlue, fontWeight: 600, fontSize: 12 }}>{days} dias de recuperação</span>
+            <span style={{ color: C.alaskanBlue, fontWeight: 700 }}>{currentPhase}</span>
           </div>
         </div>
         {profile?.emergency_contact?.phone && (
@@ -507,6 +529,10 @@ export default function PatientApp({ user, onLogout }) {
       case 'stories': return <StoryWall userId={user.id} days={days} onClose={() => setPage('tools')} />
       case 'challenge': return <CommunityChallenge userId={user.id} onClose={() => setPage('tools')} />
       case 'breathing': return <BreathingMode onClose={() => setPage('tools')} />
+      case 'biblioteca': return <ResourceLibrary onClose={() => setPage('tools')} />
+      case 'rede-apoio': return <SupportNetwork onClose={() => setPage('tools')} />
+      case 'missoes': return <DailyMissions userId={user.id} onClose={() => setPage('tools')} />
+      case 'rooms': return <MeetingRooms userId={user.id} onClose={() => setPage('tools')} />
       default: return <Home />
     }
   }
