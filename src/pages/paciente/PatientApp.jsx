@@ -44,6 +44,11 @@ export default function PatientApp({ user, onLogout }) {
   const [crisisPlan, setCrisisPlan] = useState(null)
   const [episodes, setEpisodes] = useState([])
   const [nightActive, setNightActive] = useState(false)
+  const [messages, setMessages] = useState([])
+  const [riskDismissed, setRiskDismissed] = useState(() => {
+    const d = localStorage.getItem('risk_dismissed')
+    return d && Date.now() - parseInt(d) < 24 * 3600000
+  })
 
   useEffect(() => { loadData() }, [user])
   useEffect(() => { const i = setInterval(() => setFraseIndex(x => (x + 1) % FRASES.length), 10000); return () => clearInterval(i) }, [])
@@ -61,7 +66,7 @@ export default function PatientApp({ user, onLogout }) {
 
   const loadData = async () => {
     try {
-      const [p, r, diary, dbt, purch, gls, vlt, ctr, cp, ep] = await Promise.all([
+      const [p, r, diary, dbt, purch, gls, vlt, ctr, cp, ep, msgs] = await Promise.all([
         patientService.getMyProfile(user.id),
         patientService.getMyRelapses(user.id),
         supabase.from('diary_entries').select('*').eq('patient_id', user.id).order('created_at', { ascending: false }),
@@ -71,7 +76,8 @@ export default function PatientApp({ user, onLogout }) {
         supabase.from('evidence_vault').select('*').eq('patient_id', user.id).order('created_at', { ascending: false }),
         supabase.from('behavioral_contracts').select('*').eq('patient_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('crisis_plans').select('*').eq('patient_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-        supabase.from('episodes').select('*').eq('patient_id', user.id).order('created_at', { ascending: false })
+        supabase.from('episodes').select('*').eq('patient_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('quick_messages').select('*').eq('patient_id', user.id).order('sent_at', { ascending: false }).limit(20)
       ])
       if (p.data) setProfile(p.data)
       if (r.data) setRelapses(r.data)
@@ -83,6 +89,7 @@ export default function PatientApp({ user, onLogout }) {
       if (ctr.data) setContract(ctr.data)
       if (cp.data) setCrisisPlan(cp.data)
       if (ep.data) setEpisodes(ep.data)
+      if (msgs.data) setMessages(msgs.data)
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
@@ -98,6 +105,20 @@ export default function PatientApp({ user, onLogout }) {
     catch (e) { console.error('Erro ao publicar vitória:', e) }
   }
 
+  const markMessagesRead = async () => {
+    const unread = messages.filter(m => !m.read_at)
+    if (!unread.length) return
+    try {
+      await Promise.all(unread.map(m => supabase.from('quick_messages').update({ read_at: new Date().toISOString() }).eq('id', m.id)))
+      setMessages(prev => prev.map(m => ({ ...m, read_at: m.read_at || new Date().toISOString() })))
+    } catch (e) { console.error(e) }
+  }
+
+  const dismissRisk = () => {
+    localStorage.setItem('risk_dismissed', Date.now().toString())
+    setRiskDismissed(true)
+  }
+
   const handleLogout = () => { if (onLogout) onLogout() }
 
   const days = profile?.sober_start_date ? patientService.calcDays(profile.sober_start_date, relapses) : 0
@@ -105,15 +126,20 @@ export default function PatientApp({ user, onLogout }) {
   const getPhase = (d) => { if (d >= 365) return 'Superação'; if (d >= 180) return 'Transformação'; if (d >= 90) return 'Consolidação'; if (d >= 30) return 'Construção'; if (d >= 7) return 'Começo'; return 'Início' }
   const currentPhase = getPhase(days)
 
-  const NavBar = () => (
-    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.trueBlue, padding: '8px 0 12px', display: 'flex', justifyContent: 'space-around', zIndex: 1000, borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
-      {[{ id: 'home', icon: '🏠', label: 'Início' }, { id: 'progress', icon: '📈', label: 'Progresso' }, { id: 'diary', icon: '📔', label: 'Diário' }, { id: 'tools', icon: '🔧', label: 'Ferramentas' }, { id: 'profile', icon: '👤', label: 'Perfil' }].map(i => (
-        <button key={i.id} onClick={() => setPage(i.id)} style={{ background: page === i.id ? 'rgba(255,255,255,0.15)' : 'transparent', border: 'none', color: C.white, padding: '6px 10px', borderRadius: 12, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-          <span style={{ fontSize: 20 }}>{i.icon}</span><span style={{ fontSize: 9, fontWeight: page === i.id ? 600 : 400 }}>{i.label}</span>
-        </button>
-      ))}
-    </nav>
-  )
+  const NavBar = () => {
+    const unread = messages.filter(m => !m.read_at).length
+    return (
+      <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.trueBlue, padding: '8px 0 12px', display: 'flex', justifyContent: 'space-around', zIndex: 1000, borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
+        {[{ id: 'home', icon: '🏠', label: 'Início' }, { id: 'progress', icon: '📈', label: 'Progresso' }, { id: 'diary', icon: '📔', label: 'Diário' }, { id: 'tools', icon: '🔧', label: 'Ferramentas' }, { id: 'profile', icon: '👤', label: 'Perfil' }].map(i => (
+          <button key={i.id} onClick={() => { if (i.id === 'profile') markMessagesRead(); setPage(i.id) }} style={{ background: page === i.id ? 'rgba(255,255,255,0.15)' : 'transparent', border: 'none', color: C.white, padding: '6px 10px', borderRadius: 12, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, position: 'relative' }}>
+            <span style={{ fontSize: 20 }}>{i.icon}</span>
+            {i.id === 'profile' && unread > 0 && <span style={{ position: 'absolute', top: 2, right: 4, background: C.danger, color: C.white, fontSize: 9, width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{unread}</span>}
+            <span style={{ fontSize: 9, fontWeight: page === i.id ? 600 : 400 }}>{i.label}</span>
+          </button>
+        ))}
+      </nav>
+    )
+  }
 
   const SOSButton = () => (
     <button onClick={() => setShowSOS(true)} style={{ position: 'fixed', bottom: 90, right: 20, width: 60, height: 60, borderRadius: '50%', background: C.danger, border: 'none', color: C.white, fontSize: 24, cursor: 'pointer', boxShadow: '0 4px 20px rgba(208,64,64,0.4)', zIndex: 999, animation: 'pulse 2s infinite' }}>
@@ -128,9 +154,12 @@ export default function PatientApp({ user, onLogout }) {
         <img src="/logo-apaj.png" alt="APAJ" style={{ width: 100, height: 'auto', marginBottom: 8 }} />
         <p style={{ color: C.blackRobe, fontSize: 14, opacity: 0.7 }}>Olá, {profile?.name?.split(' ')[0] || 'Bem-vindo'}!</p>
       </div>
-      {riskAlert && (
+      {riskAlert && !riskDismissed && (
         <div style={{ background: riskAlert.level === 'high' ? C.danger : C.warning, borderRadius: 14, padding: 16, marginBottom: 16, color: C.white }}>
-          <p style={{ margin: '0 0 8px', fontWeight: 600 }}>⚠️ {riskAlert.level === 'high' ? 'Alerta de Risco' : 'Atenção'}</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <p style={{ margin: 0, fontWeight: 600 }}>⚠️ {riskAlert.level === 'high' ? 'Alerta de Risco' : 'Atenção'}</p>
+            <button onClick={dismissRisk} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: C.white, borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer' }}>Dispensar</button>
+          </div>
           <p style={{ margin: '0 0 12px', fontSize: 13, opacity: 0.95 }}>{riskAlert.message}</p>
           {riskAlert.video && (
             <a href={riskAlert.video.url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', background: 'rgba(255,255,255,0.2)', padding: 12, borderRadius: 10, color: C.white, textDecoration: 'none', fontSize: 13 }}>
@@ -202,6 +231,13 @@ export default function PatientApp({ user, onLogout }) {
       <div style={{ marginTop: 12 }}>
         <DailyMissions userId={user.id} onClose={() => setPage('missoes')} compact />
       </div>
+      {vault.length === 0 && profile?.sober_start_date && (
+        <div style={{ background: '#fff9e6', border: '1px solid ' + C.warning, borderRadius: 14, padding: 14, marginTop: 12 }}>
+          <p style={{ color: C.blackRobe, fontWeight: 600, fontSize: 13, margin: '0 0 6px' }}>💡 Prepare seu Cofre SOS</p>
+          <p style={{ color: C.blackRobe, fontSize: 12, margin: '0 0 10px', opacity: 0.8 }}>Adicione uma frase, foto ou motivo — algo que te dê força quando a fissura aparecer.</p>
+          <button onClick={() => setPage('vault')} style={{ background: C.warning, color: C.white, border: 'none', padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Adicionar ao Cofre →</button>
+        </div>
+      )}
       <div style={{ marginTop: 4 }}>
         <p style={{ color: C.blackRobe, fontSize: 11, opacity: 0.5, margin: '0 0 10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Recursos & Apoio</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -421,6 +457,55 @@ export default function PatientApp({ user, onLogout }) {
             </div>
           </form>
         )}
+        {diaryEntries.length > 0 && (
+          <div style={{ background: C.white, borderRadius: 12, padding: 14, marginTop: 6, marginBottom: 6 }}>
+            <h3 style={{ color: C.trueBlue, fontSize: 13, margin: '0 0 14px', fontWeight: 600 }}>Humor — últimos 7 dias</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+              {Array.from({ length: 7 }, (_, i) => {
+                const date = new Date()
+                date.setDate(date.getDate() - (6 - i))
+                const dateStr = date.toISOString().split('T')[0]
+                const entry = diaryEntries.find(e => e.created_at?.startsWith(dateStr))
+                const cfg = entry ? MOOD_CONFIG[entry.mood] : null
+                return (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: '50%', background: cfg ? cfg.bg : C.blancDeBlanc, border: cfg ? `2px solid ${cfg.color}` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
+                      {cfg ? cfg.icon : <span style={{ color: C.blancDeBlanc, fontSize: 10 }}>–</span>}
+                    </div>
+                    <span style={{ fontSize: 9, color: C.blackRobe, opacity: 0.5 }}>
+                      {date.toLocaleDateString('pt-BR', { weekday: 'narrow' })}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+        {diaryEntries.length > 0 && (
+          <div style={{ background: C.white, borderRadius: 12, padding: 14, marginTop: 6, marginBottom: 6 }}>
+            <h3 style={{ color: C.trueBlue, fontSize: 13, margin: '0 0 12px', fontWeight: 600 }}>Humor — últimos 7 dias</h3>
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'space-around' }}>
+              {Array.from({ length: 7 }, (_, i) => {
+                const date = new Date()
+                date.setDate(date.getDate() - (6 - i))
+                const dateStr = date.toISOString().split('T')[0]
+                const entry = diaryEntries.find(e => e.created_at?.startsWith(dateStr))
+                const cfg = entry ? MOOD_CONFIG[entry.mood] : null
+                return (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: '50%', background: cfg ? cfg.bg : C.blancDeBlanc, border: i === 6 ? '2px solid ' + C.trueBlue : '2px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
+                      {cfg ? cfg.icon : <span style={{ color: '#ccc', fontSize: 14 }}>–</span>}
+                    </div>
+                    <span style={{ fontSize: 9, color: C.blackRobe, opacity: 0.5 }}>
+                      {date.toLocaleDateString('pt-BR', { weekday: 'narrow' })}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            <p style={{ color: C.blackRobe, fontSize: 10, margin: '10px 0 0', opacity: 0.5, textAlign: 'center' }}>Hoje está marcado com borda azul · dias sem registro aparecem cinza</p>
+          </div>
+        )}
         <div style={{ background: C.white, borderRadius: 12, padding: 14, marginTop: 6 }}>
           <h3 style={{ color: C.trueBlue, fontSize: 13, margin: '0 0 10px', fontWeight: 600 }}>Marcos</h3>
           {MARCOS.map(c => {
@@ -456,6 +541,7 @@ export default function PatientApp({ user, onLogout }) {
           { id: 'vault', icon: '📦', label: 'Cofre de Evidências', desc: 'Lembretes para momentos difíceis' },
           { id: 'contract', icon: '📋', label: 'Contrato Comportamental', desc: 'Seus compromissos' },
           { id: 'crisis', icon: '🚨', label: 'Plano de Crise', desc: 'Passos de emergência' },
+          { id: 'mentor', icon: '🤝', label: 'Mentoria', desc: days >= 180 ? 'Torne-se mentor ou supervisione sua equipe' : 'Conecte-se com alguém que superou' },
           { id: 'stories', icon: '📖', label: 'Histórias de Superação', desc: 'Inspire-se e inspire a comunidade' },
           { id: 'challenge', icon: '🏆', label: 'Desafio da Semana', desc: 'Missão coletiva da comunidade' },
           { id: 'donate', icon: '💙', label: 'Apoiar a APAJ', desc: 'Contribua com a causa' }
@@ -502,6 +588,22 @@ export default function PatientApp({ user, onLogout }) {
         <button onClick={() => setPage('setup')} style={{ width: '100%', padding: 10, background: C.iceMelt, border: 'none', borderRadius: 8, cursor: 'pointer', color: C.trueBlue, fontWeight: 500, fontSize: 12, marginBottom: 8 }}>Editar Configurações</button>
         <button onClick={handleLogout} style={{ width: '100%', padding: 10, background: '#ffebee', border: 'none', borderRadius: 8, color: C.danger, cursor: 'pointer', fontWeight: 500, fontSize: 12 }}>Sair</button>
       </div>
+      {messages.length > 0 && (
+        <div style={{ background: C.white, borderRadius: 12, padding: 16 }}>
+          <h3 style={{ color: C.trueBlue, fontSize: 14, margin: '0 0 12px', fontWeight: 600 }}>💬 Mensagens do Terapeuta</h3>
+          {messages.slice(0, 5).map(m => (
+            <div key={m.id} style={{ padding: '10px 0', borderBottom: '1px solid ' + C.blancDeBlanc }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                {!m.read_at && <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.alaskanBlue, flexShrink: 0, marginTop: 5 }} />}
+                <div style={{ flex: 1 }}>
+                  <p style={{ color: C.blackRobe, fontSize: 13, margin: '0 0 4px', lineHeight: 1.5 }}>{m.message}</p>
+                  <p style={{ color: C.blackRobe, fontSize: 10, margin: 0, opacity: 0.5 }}>{new Date(m.sent_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 
