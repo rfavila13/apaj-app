@@ -3,9 +3,13 @@ import { supabase } from '../services/supabase'
 
 const C = {
   trueBlue: '#1d3f77', alaskanBlue: '#66aae2', iceMelt: '#d4eaff',
-  blackRobe: '#2b2b2b', blancDeBlanc: '#e9e9ea', white: '#ffffff',
-  success: '#28a068', warning: '#e8a040', danger: '#d04040'
+  softBg: '#f0f6ff', blackRobe: '#1a2a4a', textSec: '#64748b',
+  blancDeBlanc: '#e4edf8', white: '#ffffff',
+  success: '#22c55e', warning: '#f59e0b', danger: '#ef4444',
 }
+
+const card = { background: '#fff', borderRadius: 20, boxShadow: '0 2px 16px rgba(29,63,119,0.07)', padding: 20 }
+const btnPrimary = { background: 'linear-gradient(135deg, #1d3f77 0%, #274d9c 100%)', color: '#fff', border: 'none', padding: '14px 24px', borderRadius: 14, fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 14px rgba(29,63,119,0.28)' }
 
 const ALL_MISSIONS = [
   { key: 'breathe_5', emoji: '🌬️', title: 'Respiração Consciente', desc: 'Faça 5 minutos de respiração profunda: inspire por 4s, segure por 4s, expire por 4s.', cat: 'Mindfulness', time: '5 min' },
@@ -29,8 +33,19 @@ const ALL_MISSIONS = [
 ]
 
 const CAT_COLORS = {
-  'Mindfulness': C.alaskanBlue, 'Físico': C.success,
-  'Social': C.warning, 'Financeiro': '#9c27b0', 'Recuperação': C.trueBlue
+  'Mindfulness': '#4a90d9',
+  'Físico': '#22c55e',
+  'Social': '#f59e0b',
+  'Financeiro': '#8b5cf6',
+  'Recuperação': '#1d3f77',
+}
+
+const CAT_BG = {
+  'Mindfulness': 'rgba(74,144,217,0.1)',
+  'Físico': 'rgba(34,197,94,0.1)',
+  'Social': 'rgba(245,158,11,0.1)',
+  'Financeiro': 'rgba(139,92,246,0.1)',
+  'Recuperação': 'rgba(29,63,119,0.1)',
 }
 
 const getDailyMissions = () => {
@@ -79,7 +94,7 @@ export default function DailyMissions({ userId, onClose, compact = false }) {
       })
       if (!error) {
         setCompletions(prev => [...prev, mission.key])
-        alert('✅ Missão concluída! Continue nessa jornada.')
+        alert('✅ Prática concluída! Continue nessa jornada.')
       }
     } catch (e) { console.error(e) }
     finally { setCompleting(null) }
@@ -89,80 +104,96 @@ export default function DailyMissions({ userId, onClose, compact = false }) {
 
   if (compact) {
     return (
-      <div style={{ background: C.white, borderRadius: 16, padding: 16, marginBottom: 12 }}>
+      <div style={{ background: C.white, borderRadius: 20, boxShadow: '0 2px 16px rgba(29,63,119,0.07)', padding: 18, marginBottom: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ color: C.trueBlue, fontSize: 14, margin: 0, fontWeight: 700 }}>🎯 Missões do Dia</h3>
-          <span style={{ color: C.success, fontSize: 12, fontWeight: 600 }}>{doneCount}/3 concluídas</span>
+          <h3 style={{ color: C.trueBlue, fontSize: 14, margin: 0, fontWeight: 700 }}>🎯 Práticas do Dia</h3>
+          <span style={{ color: C.success, fontSize: 12, fontWeight: 700, background: 'rgba(34,197,94,0.1)', padding: '3px 10px', borderRadius: 20 }}>{doneCount}/3</span>
         </div>
-        <div style={{ background: C.blancDeBlanc, borderRadius: 8, height: 6, marginBottom: 12, overflow: 'hidden' }}>
-          <div style={{ width: (doneCount / 3 * 100) + '%', height: '100%', background: `linear-gradient(90deg, ${C.alaskanBlue}, ${C.success})`, borderRadius: 8, transition: 'width 0.5s' }} />
+        <div style={{ background: C.blancDeBlanc, borderRadius: 8, height: 6, marginBottom: 14, overflow: 'hidden' }}>
+          <div style={{ width: (doneCount / 3 * 100) + '%', height: '100%', background: 'linear-gradient(90deg, #1d3f77, #22c55e)', borderRadius: 8, transition: 'width 0.5s ease' }} />
         </div>
-        {loading ? <p style={{ color: C.blackRobe, opacity: 0.5, fontSize: 12 }}>Carregando...</p> : missions.map(m => (
-          <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid ' + C.blancDeBlanc }}>
-            <span style={{ fontSize: 20, flexShrink: 0 }}>{m.emoji}</span>
-            <div style={{ flex: 1 }}>
-              <p style={{ color: completions.includes(m.key) ? C.success : C.trueBlue, fontSize: 12, margin: 0, fontWeight: 600, textDecoration: completions.includes(m.key) ? 'line-through' : 'none' }}>{m.title}</p>
-              <p style={{ color: CAT_COLORS[m.cat], fontSize: 10, margin: 0 }}>{m.cat} • {m.time}</p>
+        {loading ? (
+          <p style={{ color: C.textSec, fontSize: 12, textAlign: 'center' }}>Carregando...</p>
+        ) : missions.map((m, idx) => {
+          const done = completions.includes(m.key)
+          return (
+            <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: idx < 2 ? '1px solid ' + C.blancDeBlanc : 'none' }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: done ? 'rgba(34,197,94,0.1)' : C.softBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{m.emoji}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ color: done ? C.success : C.blackRobe, fontSize: 12, margin: '0 0 2px', fontWeight: 600, textDecoration: done ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.title}</p>
+                <p style={{ color: CAT_COLORS[m.cat], fontSize: 10, margin: 0, fontWeight: 600 }}>{m.cat} · {m.time}</p>
+              </div>
+              <button onClick={() => completeMission(m)} disabled={done || completing === m.key}
+                style={{ background: done ? 'rgba(34,197,94,0.1)' : 'linear-gradient(135deg, #1d3f77, #274d9c)', color: done ? C.success : C.white, border: 'none', borderRadius: 10, padding: '7px 12px', fontSize: 11, cursor: done ? 'default' : 'pointer', fontWeight: 700, flexShrink: 0, boxShadow: done ? 'none' : '0 2px 8px rgba(29,63,119,0.2)' }}>
+                {done ? '✓' : completing === m.key ? '...' : 'Feito'}
+              </button>
             </div>
-            <button onClick={() => completeMission(m)} disabled={completions.includes(m.key) || completing === m.key}
-              style={{ background: completions.includes(m.key) ? '#e8f5e9' : C.trueBlue, color: completions.includes(m.key) ? C.success : C.white, border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 11, cursor: completions.includes(m.key) ? 'default' : 'pointer', fontWeight: 600 }}>
-              {completions.includes(m.key) ? '✓' : completing === m.key ? '...' : 'Feito'}
-            </button>
-          </div>
-        ))}
-        {onClose && <button onClick={onClose} style={{ width: '100%', marginTop: 10, background: 'none', border: 'none', color: C.alaskanBlue, fontSize: 12, cursor: 'pointer' }}>Ver detalhes →</button>}
+          )
+        })}
+        {onClose && (
+          <button onClick={onClose} style={{ width: '100%', marginTop: 12, background: 'none', border: 'none', color: C.alaskanBlue, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Ver detalhes →</button>
+        )}
       </div>
     )
   }
 
   return (
-    <div style={{ padding: 20, paddingBottom: 100 }}>
-      <button onClick={onClose} style={{ background: 'none', border: 'none', color: C.trueBlue, cursor: 'pointer', marginBottom: 12, fontWeight: 500 }}>← Voltar</button>
-      <h1 style={{ color: C.trueBlue, fontSize: 20, marginBottom: 4, fontWeight: 700 }}>🎯 Missões Diárias</h1>
-      <p style={{ color: C.blackRobe, opacity: 0.6, fontSize: 13, marginBottom: 20 }}>3 práticas renovadas todo dia. Toda a comunidade APAJ realiza as mesmas missões juntos.</p>
-
-      <div style={{ background: `linear-gradient(135deg, ${C.trueBlue}, ${C.alaskanBlue})`, borderRadius: 20, padding: 20, marginBottom: 20, color: C.white }}>
-        <p style={{ margin: '0 0 8px', fontSize: 13, opacity: 0.8 }}>Progresso de hoje</p>
-        <p style={{ margin: '0 0 16px', fontSize: 28, fontWeight: 700 }}>{doneCount} / 3 práticas</p>
-        <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 10, height: 10, overflow: 'hidden' }}>
-          <div style={{ width: (doneCount / 3 * 100) + '%', height: '100%', background: C.white, borderRadius: 10, transition: 'width 0.5s' }} />
-        </div>
-        {doneCount === 3 && (
-          <p style={{ margin: '12px 0 0', textAlign: 'center', fontSize: 14, fontWeight: 600 }}>Você cuidou de você hoje. Isso é o que importa.</p>
-        )}
+    <div style={{ background: C.softBg, minHeight: '100vh', paddingBottom: 110 }}>
+      <div style={{ background: 'linear-gradient(135deg, #1d3f77, #274d9c)', padding: '52px 24px 28px', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -30, right: -30, width: 160, height: 160, borderRadius: '50%', background: 'rgba(102,170,226,0.12)', pointerEvents: 'none' }} />
+        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: C.white, cursor: 'pointer', marginBottom: 16, fontWeight: 600, borderRadius: 10, padding: '6px 14px', fontSize: 13, position: 'relative' }}>← Voltar</button>
+        <h1 style={{ color: C.white, fontSize: 22, fontWeight: 700, margin: '0 0 4px', position: 'relative' }}>🎯 Práticas Diárias</h1>
+        <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, margin: 0, position: 'relative' }}>3 práticas renovadas todo dia para a comunidade</p>
       </div>
 
-      {loading ? (
-        <p style={{ textAlign: 'center', color: C.trueBlue }}>Carregando missões...</p>
-      ) : (
-        missions.map((m) => {
-          const done = completions.includes(m.key)
-          return (
-            <div key={m.key} style={{ background: done ? '#e8f5e9' : C.white, borderRadius: 20, padding: 20, marginBottom: 14, borderLeft: done ? '4px solid ' + C.success : 'none', transition: 'all 0.3s' }}>
-              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                <span style={{ fontSize: 38, flexShrink: 0 }}>{m.emoji}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                    <span style={{ background: CAT_COLORS[m.cat] + '22', color: CAT_COLORS[m.cat], padding: '2px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{m.cat}</span>
-                    <span style={{ background: C.iceMelt, color: C.trueBlue, padding: '2px 10px', borderRadius: 20, fontSize: 10 }}>⏱ {m.time}</span>
+      <div style={{ padding: '16px 16px 0' }}>
+        {/* Progress card */}
+        <div style={{ background: 'linear-gradient(135deg, #0d2b5e 0%, #1d3f77 50%, #2a5298 100%)', borderRadius: 20, padding: 20, marginBottom: 16, color: C.white, boxShadow: '0 6px 24px rgba(29,63,119,0.25)' }}>
+          <p style={{ margin: '0 0 4px', fontSize: 13, opacity: 0.75 }}>Progresso de hoje</p>
+          <p style={{ margin: '0 0 16px', fontSize: 28, fontWeight: 800, letterSpacing: -0.5 }}>{doneCount} <span style={{ fontSize: 16, opacity: 0.7, fontWeight: 400 }}>/ 3 práticas</span></p>
+          <div style={{ background: 'rgba(255,255,255,0.18)', borderRadius: 10, height: 8, overflow: 'hidden' }}>
+            <div style={{ width: (doneCount / 3 * 100) + '%', height: '100%', background: doneCount === 3 ? C.success : C.alaskanBlue, borderRadius: 10, transition: 'width 0.5s ease' }} />
+          </div>
+          {doneCount === 3 && (
+            <p style={{ margin: '12px 0 0', textAlign: 'center', fontSize: 14, fontWeight: 600, opacity: 0.95 }}>🌟 Você cuidou de você hoje. Isso é o que importa.</p>
+          )}
+        </div>
+
+        {/* Mission cards */}
+        {loading ? (
+          <div style={{ ...card, textAlign: 'center', padding: 32 }}>
+            <p style={{ color: C.textSec, margin: 0 }}>Carregando práticas...</p>
+          </div>
+        ) : (
+          missions.map((m) => {
+            const done = completions.includes(m.key)
+            return (
+              <div key={m.key} style={{ background: done ? 'rgba(34,197,94,0.04)' : C.white, borderRadius: 20, padding: 20, marginBottom: 12, boxShadow: '0 2px 16px rgba(29,63,119,0.07)', border: done ? '1.5px solid rgba(34,197,94,0.25)' : '1.5px solid transparent' }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                  <div style={{ width: 52, height: 52, borderRadius: 16, background: done ? 'rgba(34,197,94,0.1)' : CAT_BG[m.cat], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flexShrink: 0 }}>{m.emoji}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+                      <span style={{ background: CAT_BG[m.cat], color: CAT_COLORS[m.cat], padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{m.cat}</span>
+                      <span style={{ background: C.softBg, color: C.textSec, padding: '3px 10px', borderRadius: 20, fontSize: 10 }}>⏱ {m.time}</span>
+                    </div>
+                    <h3 style={{ color: done ? C.success : C.trueBlue, fontSize: 15, margin: '0 0 6px', fontWeight: 700 }}>{done && '✓ '}{m.title}</h3>
+                    <p style={{ color: C.textSec, fontSize: 13, margin: '0 0 16px', lineHeight: 1.6 }}>{m.desc}</p>
+                    <button onClick={() => completeMission(m)} disabled={done || completing === m.key}
+                      style={{ width: '100%', background: done ? 'rgba(34,197,94,0.12)' : 'linear-gradient(135deg, #1d3f77 0%, #274d9c 100%)', color: done ? C.success : C.white, border: done ? '1.5px solid rgba(34,197,94,0.3)' : 'none', padding: '13px', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: done ? 'default' : 'pointer', boxShadow: done ? 'none' : '0 4px 14px rgba(29,63,119,0.28)' }}>
+                      {done ? '✓ Prática Realizada' : completing === m.key ? 'Registrando...' : 'Marcar como Realizada'}
+                    </button>
                   </div>
-                  <h3 style={{ color: done ? C.success : C.trueBlue, fontSize: 15, margin: '0 0 6px', fontWeight: 700 }}>{done && '✓ '}{m.title}</h3>
-                  <p style={{ color: C.blackRobe, fontSize: 12, margin: '0 0 16px', lineHeight: 1.6, opacity: 0.8 }}>{m.desc}</p>
-                  <button onClick={() => completeMission(m)} disabled={done || completing === m.key}
-                    style={{ width: '100%', background: done ? C.success : C.trueBlue, color: C.white, border: 'none', padding: 14, borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: done ? 'default' : 'pointer', opacity: done ? 0.7 : 1 }}>
-                    {done ? '✓ Prática Realizada' : completing === m.key ? 'Registrando...' : 'Marcar como Realizada'}
-                  </button>
                 </div>
               </div>
-            </div>
-          )
-        })
-      )}
+            )
+          })
+        )}
 
-      <div style={{ background: C.iceMelt, borderRadius: 14, padding: 16, marginTop: 8 }}>
-        <p style={{ color: C.trueBlue, fontSize: 12, margin: 0, lineHeight: 1.5 }}>
-          💡 <strong>Prática coletiva:</strong> Todos os pacientes APAJ realizam as mesmas 3 práticas por dia. Você não está sozinho nessa jornada.
-        </p>
+        <div style={{ background: C.iceMelt, borderRadius: 14, padding: 16, marginTop: 4 }}>
+          <p style={{ color: C.trueBlue, fontSize: 12, margin: 0, lineHeight: 1.6 }}>
+            💡 <strong>Prática coletiva:</strong> Todos os pacientes APAJ realizam as mesmas 3 práticas por dia. Você não está sozinho nessa jornada.
+          </p>
+        </div>
       </div>
     </div>
   )
