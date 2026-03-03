@@ -503,8 +503,8 @@ export default function PsychologistPanel({ user, onLogout }) {
                     <p style={{ color: C.blackRobe, fontSize: 11, margin: '2px 0 0', opacity: 0.7 }}>concluíram</p>
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <p style={{ color: C.alaskanBlue, fontWeight: 700, fontSize: 20, margin: 0 }}>{challenge.xp_reward || 0}</p>
-                    <p style={{ color: C.blackRobe, fontSize: 11, margin: '2px 0 0', opacity: 0.7 }}>XP recompensa</p>
+                    <p style={{ color: C.alaskanBlue, fontWeight: 700, fontSize: 20, margin: 0 }}>{challenge.duration_days || 0}d</p>
+                    <p style={{ color: C.blackRobe, fontSize: 11, margin: '2px 0 0', opacity: 0.7 }}>duração</p>
                   </div>
                 </div>
                 {challenge.tip && (
@@ -529,7 +529,7 @@ export default function PsychologistPanel({ user, onLogout }) {
                     <label style={{ display: 'block', color: C.blackRobe, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>Dica para o paciente (opcional)</label>
                     <input placeholder="Ex: Quando sentir vontade, use a respiração guiada" value={challengeForm.tip} onChange={e => setChallengeForm({ ...challengeForm, tip: e.target.value })} style={{ ...input }} />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
                     <div>
                       <label style={{ display: 'block', color: C.blackRobe, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>Duração (dias) *</label>
                       <input type="number" min="1" max="30" value={challengeForm.duration_days} onChange={e => setChallengeForm({ ...challengeForm, duration_days: e.target.value })} style={{ ...input }} />
@@ -537,10 +537,6 @@ export default function PsychologistPanel({ user, onLogout }) {
                     <div>
                       <label style={{ display: 'block', color: C.blackRobe, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>Encerra em *</label>
                       <input type="date" value={challengeForm.end_date} onChange={e => setChallengeForm({ ...challengeForm, end_date: e.target.value })} style={{ ...input }} />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', color: C.blackRobe, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>Recompensa XP</label>
-                      <input type="number" min="0" value={challengeForm.xp_reward} onChange={e => setChallengeForm({ ...challengeForm, xp_reward: e.target.value })} style={{ ...input }} />
                     </div>
                   </div>
                   <div style={{ background: '#fff9e6', borderRadius: 10, padding: 12, marginBottom: 16 }}>

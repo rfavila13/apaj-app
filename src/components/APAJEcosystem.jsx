@@ -32,18 +32,26 @@ export function VideoFeed({ suggestedVideo, category }) {
 }
 
 function VideoCard({ video, highlight }) {
-  return (
-    <a href={video.url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', background: highlight ? C.white : C.white, borderRadius: 12, padding: 14, marginBottom: 10, textDecoration: 'none', boxShadow: highlight ? '0 2px 12px rgba(232,160,64,0.3)' : 'none' }}>
-      <div style={{ display: 'flex', gap: 12 }}>
-        <div style={{ width: 60, height: 60, background: C.iceMelt, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>▶️</div>
-        <div style={{ flex: 1 }}>
-          <h3 style={{ color: C.trueBlue, fontSize: 14, margin: '0 0 4px', fontWeight: 600 }}>{video.title}</h3>
-          <p style={{ color: C.blackRobe, fontSize: 12, margin: '0 0 6px', opacity: 0.6 }}>{video.author} • {video.duration}</p>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {video.tags.slice(0, 2).map(t => <span key={t} style={{ background: C.iceMelt, color: C.trueBlue, padding: '2px 8px', borderRadius: 10, fontSize: 10 }}>{t}</span>)}
-          </div>
+  const available = video.url && video.url !== '#'
+  const inner = (
+    <div style={{ display: 'flex', gap: 12 }}>
+      <div style={{ width: 60, height: 60, background: available ? C.iceMelt : C.blancDeBlanc, borderRadius: 10, display: 'flex', alignItems: 'center', flexDirection: 'column', justifyContent: 'center', fontSize: available ? 24 : 16, color: available ? 'inherit' : '#aaa' }}>
+        {available ? '▶️' : <><span>🎬</span><span style={{ fontSize: 8, marginTop: 2 }}>em breve</span></>}
+      </div>
+      <div style={{ flex: 1 }}>
+        <h3 style={{ color: C.trueBlue, fontSize: 14, margin: '0 0 4px', fontWeight: 600 }}>{video.title}</h3>
+        <p style={{ color: C.blackRobe, fontSize: 12, margin: '0 0 6px', opacity: 0.6 }}>{video.author} • {video.duration}</p>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {video.tags.slice(0, 2).map(t => <span key={t} style={{ background: C.iceMelt, color: C.trueBlue, padding: '2px 8px', borderRadius: 10, fontSize: 10 }}>{t}</span>)}
+          {!available && <span style={{ background: '#fff3e0', color: C.warning, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600 }}>Em produção</span>}
         </div>
       </div>
+    </div>
+  )
+  if (!available) return <div style={{ background: C.white, borderRadius: 12, padding: 14, marginBottom: 10, opacity: 0.75 }}>{inner}</div>
+  return (
+    <a href={video.url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', background: C.white, borderRadius: 12, padding: 14, marginBottom: 10, textDecoration: 'none', boxShadow: highlight ? '0 2px 12px rgba(232,160,64,0.3)' : 'none' }}>
+      {inner}
     </a>
   )
 }
