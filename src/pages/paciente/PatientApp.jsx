@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { patientService } from '../../services/patientService'
 import { supabase } from '../../services/supabase'
 import { analyzeTriggers, generateRiskReport } from '../../utils/triggerAnalyzer'
+import { C } from '../../theme/colors'
 import SOSFissura from '../../components/SOSFissura'
 import GoalsTracker from '../../components/GoalsTracker'
 import EpisodeProcessor from '../../components/EpisodeProcessor'
@@ -20,19 +21,6 @@ import SupportNetwork from '../../components/SupportNetwork'
 import DailyMissions from '../../components/DailyMissions'
 import MeetingRooms from '../../components/MeetingRooms'
 
-const C = {
-  trueBlue: '#1d3f77',
-  alaskanBlue: '#66aae2',
-  iceMelt: '#d4eaff',
-  softBg: '#f0f6ff',
-  blackRobe: '#1a2a4a',
-  textSec: '#64748b',
-  blancDeBlanc: '#e4edf8',
-  white: '#ffffff',
-  success: '#22c55e',
-  warning: '#f59e0b',
-  danger: '#ef4444',
-}
 // Tokens de estilo reutilizáveis
 const card = { background: '#fff', borderRadius: 20, boxShadow: '0 2px 16px rgba(29,63,119,0.07)', padding: 20 }
 const cardSm = { background: '#fff', borderRadius: 16, boxShadow: '0 1px 8px rgba(29,63,119,0.06)', padding: 16 }

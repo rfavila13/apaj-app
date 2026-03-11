@@ -2,19 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { supabase, checkUserType, signIn, signOut, signUp } from './services/supabase'
 import PatientApp from './pages/paciente/PatientApp'
 import PsychologistPanel from './pages/psicologo/PsychologistPanel'
-
-const C = {
-  trueBlue: '#1d3f77',
-  alaskanBlue: '#66aae2',
-  iceMelt: '#d4eaff',
-  softBg: '#f0f6ff',
-  blackRobe: '#1a2a4a',
-  textSec: '#64748b',
-  blancDeBlanc: '#e4edf8',
-  white: '#ffffff',
-  success: '#22c55e',
-  danger: '#ef4444',
-}
+import { C } from './theme/colors'
 
 const inputStyle = {
   width: '100%',
@@ -33,28 +21,22 @@ export default function App() {
   const [userType, setUserType] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [isSuccess, setIsSuccess] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
   const [form, setForm] = useState({ email: '', password: '', name: '', phone: '' })
   const [formLoading, setFormLoading] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (e, session) => {
       if (session?.user) {
         setUser(session.user)
         const { type } = await checkUserType(session.user.id)
         setUserType(type)
-      }
-      setLoading(false)
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (e, session) => {
-      if (e === 'SIGNED_IN' && session?.user) {
-        setUser(session.user)
-        const { type } = await checkUserType(session.user.id)
-        setUserType(type)
-      } else if (e === 'SIGNED_OUT') {
+      } else {
         setUser(null)
         setUserType(null)
       }
+      setLoading(false)
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -63,6 +45,7 @@ export default function App() {
     e.preventDefault()
     setFormLoading(true)
     setError('')
+    setIsSuccess(false)
     try {
       if (isSignUp) {
         const { data, error } = await signUp(form.email, form.password, { name: form.name, phone: form.phone })
@@ -70,14 +53,13 @@ export default function App() {
         if (data.user) {
           await supabase.from('patients').insert({ id: data.user.id, email: form.email, name: form.name, phone: form.phone })
           setError('Cadastro realizado! Verifique seu email.')
+          setIsSuccess(true)
           setIsSignUp(false)
         }
       } else {
-        const { data, error } = await signIn(form.email, form.password)
+        const { error } = await signIn(form.email, form.password)
         if (error) throw error
-        setUser(data.user)
-        const { type } = await checkUserType(data.user.id)
-        setUserType(type)
+        // onAuthStateChange handles setting user and userType
       }
     } catch (err) {
       setError(err.message || 'Erro ao autenticar')
@@ -146,9 +128,9 @@ export default function App() {
 
           {error && (
             <div style={{
-              background: error.includes('realizado') ? '#f0fdf4' : '#fef2f2',
-              color: error.includes('realizado') ? '#16a34a' : '#dc2626',
-              border: `1px solid ${error.includes('realizado') ? '#bbf7d0' : '#fecaca'}`,
+              background: isSuccess ? '#f0fdf4' : '#fef2f2',
+              color: isSuccess ? '#16a34a' : '#dc2626',
+              border: `1px solid ${isSuccess ? '#bbf7d0' : '#fecaca'}`,
               padding: '12px 16px',
               borderRadius: 12,
               marginBottom: 20,
@@ -244,7 +226,7 @@ export default function App() {
           <p style={{ textAlign: 'center', color: C.textSec, fontSize: 13, marginTop: 20 }}>
             {isSignUp ? 'Já tem uma conta?' : 'Não tem uma conta?'}{' '}
             <button
-              onClick={() => { setIsSignUp(!isSignUp); setError('') }}
+              onClick={() => { setIsSignUp(!isSignUp); setError(''); setIsSuccess(false) }}
               style={{ background: 'none', border: 'none', color: C.trueBlue, fontWeight: 600, cursor: 'pointer', fontSize: 13, padding: 0 }}
             >
               {isSignUp ? 'Entrar' : 'Solicite acesso'}

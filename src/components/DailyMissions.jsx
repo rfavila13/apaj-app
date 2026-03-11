@@ -1,12 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../services/supabase'
-
-const C = {
-  trueBlue: '#1d3f77', alaskanBlue: '#66aae2', iceMelt: '#d4eaff',
-  softBg: '#f0f6ff', blackRobe: '#1a2a4a', textSec: '#64748b',
-  blancDeBlanc: '#e4edf8', white: '#ffffff',
-  success: '#22c55e', warning: '#f59e0b', danger: '#ef4444',
-}
+import { C } from '../theme/colors'
 
 const card = { background: '#fff', borderRadius: 20, boxShadow: '0 2px 16px rgba(29,63,119,0.07)', padding: 20 }
 const btnPrimary = { background: 'linear-gradient(135deg, #1d3f77 0%, #274d9c 100%)', color: '#fff', border: 'none', padding: '14px 24px', borderRadius: 14, fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 14px rgba(29,63,119,0.28)' }
@@ -68,8 +62,9 @@ export default function DailyMissions({ userId, onClose, compact = false }) {
   const [completions, setCompletions] = useState([])
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState(null)
+  const [lastCompleted, setLastCompleted] = useState(null)
 
-  const missions = getDailyMissions()
+  const missions = useMemo(() => getDailyMissions(), [])
   const today = new Date().toISOString().split('T')[0]
 
   useEffect(() => { loadCompletions() }, [])
@@ -94,7 +89,8 @@ export default function DailyMissions({ userId, onClose, compact = false }) {
       })
       if (!error) {
         setCompletions(prev => [...prev, mission.key])
-        alert('✅ Prática concluída! Continue nessa jornada.')
+        setLastCompleted(mission.key)
+        setTimeout(() => setLastCompleted(null), 3000)
       }
     } catch (e) { console.error(e) }
     finally { setCompleting(null) }
@@ -112,6 +108,11 @@ export default function DailyMissions({ userId, onClose, compact = false }) {
         <div style={{ background: C.blancDeBlanc, borderRadius: 8, height: 6, marginBottom: 14, overflow: 'hidden' }}>
           <div style={{ width: (doneCount / 3 * 100) + '%', height: '100%', background: 'linear-gradient(90deg, #1d3f77, #22c55e)', borderRadius: 8, transition: 'width 0.5s ease' }} />
         </div>
+        {lastCompleted && (
+          <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 10, padding: '8px 12px', marginBottom: 10, textAlign: 'center' }}>
+            <p style={{ color: C.success, fontSize: 12, margin: 0, fontWeight: 600 }}>✅ Prática concluída! Continue nessa jornada.</p>
+          </div>
+        )}
         {loading ? (
           <p style={{ color: C.textSec, fontSize: 12, textAlign: 'center' }}>Carregando...</p>
         ) : missions.map((m, idx) => {

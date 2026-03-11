@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { SOS_CARDS } from '../data/constants'
 import { supabase } from '../services/supabase'
-
-const C = {
-  trueBlue: '#1d3f77', alaskanBlue: '#66aae2', white: '#ffffff',
-  success: '#22c55e', warning: '#f59e0b', danger: '#ef4444',
-}
+import { C } from '../theme/colors'
 
 export default function SOSFissura({ profile, userId, vault, onClose }) {
   const [phase, setPhase] = useState('vault')
@@ -18,11 +14,13 @@ export default function SOSFissura({ profile, userId, vault, onClose }) {
   useEffect(() => {
     if (phase === 'timer' && time > 0) {
       ref.current = setInterval(() => setTime(t => t - 1), 1000)
-      return () => clearInterval(ref.current)
+    } else {
+      clearInterval(ref.current)
     }
+    return () => clearInterval(ref.current)
   }, [phase, time])
 
-  useEffect(() => { if (userId) logSOSUsage() }, [])
+  useEffect(() => { if (userId) logSOSUsage() }, [userId])
 
   const logSOSUsage = async () => {
     try { await supabase.from('sos_logs').insert({ patient_id: userId }) } catch (e) { console.error(e) }
@@ -145,22 +143,23 @@ export default function SOSFissura({ profile, userId, vault, onClose }) {
         {phase === 'contact' && (
           <div style={{ width: '100%', maxWidth: 340 }}>
             {profile?.emergency_contact?.phone ? (
-              <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 18, marginBottom: 14, textAlign: 'center' }}>
-                <div style={{ fontSize: 36, marginBottom: 10 }}>👤</div>
-                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, margin: '0 0 6px' }}>Seu contato de emergência</p>
-                <p style={{ color: C.white, fontSize: 16, fontWeight: 700, margin: 0 }}>{profile.emergency_contact.name || profile.emergency_contact.phone}</p>
-              </div>
-            ) : null}
-
-            {!profile?.emergency_contact?.phone ? (
+              <>
+                <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 18, marginBottom: 14, textAlign: 'center' }}>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}>👤</div>
+                  <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, margin: '0 0 6px' }}>Seu contato de emergência</p>
+                  <p style={{ color: C.white, fontSize: 16, fontWeight: 700, margin: 0 }}>{profile.emergency_contact.name || profile.emergency_contact.phone}</p>
+                </div>
+                {!sent ? (
+                  <button onClick={sendSOS} style={{ width: '100%', background: '#25D366', border: 'none', color: C.white, padding: '16px', borderRadius: 14, fontSize: 16, fontWeight: 700, cursor: 'pointer', marginBottom: 12, boxShadow: '0 4px 20px rgba(37,211,102,0.3)' }}>📲 Enviar SOS via WhatsApp</button>
+                ) : (
+                  <div style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', padding: 16, borderRadius: 14, marginBottom: 12, textAlign: 'center' }}>
+                    <p style={{ color: C.success, margin: 0, fontWeight: 700, fontSize: 15 }}>✓ Mensagem enviada! Alguém está a caminho.</p>
+                  </div>
+                )}
+              </>
+            ) : (
               <div style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', padding: 16, borderRadius: 14, marginBottom: 14, textAlign: 'center' }}>
                 <p style={{ color: C.warning, margin: 0, fontSize: 13 }}>⚠️ Configure um contato de emergência no seu perfil.</p>
-              </div>
-            ) : !sent ? (
-              <button onClick={sendSOS} style={{ width: '100%', background: '#25D366', border: 'none', color: C.white, padding: '16px', borderRadius: 14, fontSize: 16, fontWeight: 700, cursor: 'pointer', marginBottom: 12, boxShadow: '0 4px 20px rgba(37,211,102,0.3)' }}>📲 Enviar SOS via WhatsApp</button>
-            ) : (
-              <div style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', padding: 16, borderRadius: 14, marginBottom: 12, textAlign: 'center' }}>
-                <p style={{ color: C.success, margin: 0, fontWeight: 700, fontSize: 15 }}>✓ Mensagem enviada! Alguém está a caminho.</p>
               </div>
             )}
 

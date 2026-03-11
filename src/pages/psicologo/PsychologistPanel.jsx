@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { psychologistService } from '../../services/psychologistService'
 import { supabase } from '../../services/supabase'
 import { analyzeTriggers, analyzeEscapePatterns } from '../../utils/triggerAnalyzer'
-
-const C = { trueBlue: '#1d3f77', alaskanBlue: '#66aae2', iceMelt: '#d4eaff', blackRobe: '#2b2b2b', blancDeBlanc: '#e9e9ea', white: '#ffffff', success: '#28a068', warning: '#e8a040', danger: '#d04040' }
+import { C } from '../../theme/colors'
 
 export default function PsychologistPanel({ user, onLogout }) {
   const [page, setPage] = useState('dashboard')
